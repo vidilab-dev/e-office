@@ -1,0 +1,6 @@
+{
+  "name": "e-Office PT BIN — Platform Workflow Perkantoran Terpadu",
+  "description": "Platform workflow persuratan, disposisi, approval berjenjang, cuti, perjalanan dinas (SPD/LPJ), arsip digital, dan monitoring eksekutif PT BIN.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
