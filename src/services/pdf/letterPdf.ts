@@ -1,4 +1,5 @@
-import { PDFDocument, PDFPage, StandardFonts, rgb, PDFFont } from 'pdf-lib';
+import { PDFDocument, PDFPage, StandardFonts, rgb, PDFFont, RGB } from 'pdf-lib';
+import fontkit from '@pdf-lib/fontkit';
 import { parseContent, ContentSegment } from '../../utils/contentBlocks';
 import { formatTanggalSurat } from '../../utils/formatDate';
 import { base64ToBytes } from '../../utils/bytes';
@@ -11,9 +12,9 @@ const CONTENT_W = A4_W - MARGIN * 2;
 const BOTTOM = MARGIN;
 
 const LABEL_W = 72; // lebar kolom label meta (≈ w-24)
-const BODY_SIZE = 10;
-const BODY_LEAD = 14.5;
-const SMALL = 8.5;
+// Teks dokumen (tanggal → tembusan): Tahoma 11px @96dpi = 8.25pt — identik dengan preview
+const DOC_SIZE = 11 * (72 / 96);
+const DOC_LEAD = 12;
 
 export interface LetterPdfDoc {
   letterNumber?: string;
@@ -50,7 +51,28 @@ export const letterPdfFileName = (doc: LetterPdfDoc): string => {
   return `${base}.pdf`.replace(/[\\/:*?"<>|]+/g, '-');
 };
 
-const enc = (s: string) => s.replace(/[^\u0020-\u00FF\n]/g, '?');
+const enc = (s: string) =>
+  s
+    .replace(/[\u2013\u2014]/g, '-')
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/[\u201C\u201D]/g, '"')
+    .replace(/\u2026/g, '...')
+    .replace(/[^\u0020-\u00FF\n]/g, '?');
+
+/** Muat Tahoma dari /public/fonts; gagal → fallback Helvetica. */
+const loadTahoma = async (pdf: PDFDocument): Promise<{ reg: PDFFont; bold: PDFFont } | null> => {
+  try {
+    pdf.registerFontkit(fontkit);
+    const [regRes, boldRes] = await Promise.all([fetch('/fonts/tahoma.ttf'), fetch('/fonts/tahomabd.ttf')]);
+    if (!regRes.ok || !boldRes.ok) return null;
+    const [regBuf, boldBuf] = await Promise.all([regRes.arrayBuffer(), boldRes.arrayBuffer()]);
+    const reg = await pdf.embedFont(new Uint8Array(regBuf), { subset: true });
+    const bold = await pdf.embedFont(new Uint8Array(boldBuf), { subset: true });
+    return { reg, bold };
+  } catch {
+    return null;
+  }
+};
 
 export const generateLetterPdf = async (doc: LetterPdfDoc): Promise<Uint8Array> => {
   const pdf = await PDFDocument.create();
@@ -59,15 +81,19 @@ export const generateLetterPdf = async (doc: LetterPdfDoc): Promise<Uint8Array> 
 
   const font = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
-  const italic = await pdf.embedFont(StandardFonts.HelveticaOblique);
+
+  // Tahoma untuk teks dokumen (tanggal → tembusan); kop surat tetap Helvetica
+  const tahoma = await loadTahoma(pdf);
+  const docFont = tahoma?.reg ?? font;
+  const docBold = tahoma?.bold ?? bold;
 
   let page: PDFPage = pdf.addPage([A4_W, A4_H]);
   let y = A4_H - MARGIN; // jarak dari atas
 
   const black = rgb(0.06, 0.09, 0.15);
+  const ink = rgb(0, 0, 0); // hitam murni — teks dokumen
   const slate6 = rgb(0.28, 0.33, 0.41);
   const slate5 = rgb(0.39, 0.45, 0.55);
-  const blue9 = rgb(0.08, 0.2, 0.45);
 
   const addPage = () => {
     page = pdf.addPage([A4_W, A4_H]);
@@ -107,7 +133,7 @@ export const generateLetterPdf = async (doc: LetterPdfDoc): Promise<Uint8Array> 
     return out;
   };
 
-  const drawLines = (lines: string[], x: number, size: number, f: PDFFont, color = black, leading = size * 1.45) => {
+  const drawLines = (lines: string[], x: number, size: number, f: PDFFont, color = ink, leading = size * 1.45) => {
     for (const l of lines) {
       page.drawText(l, { x, y: y - size, size, font: f, color });
       y -= leading;
@@ -117,43 +143,46 @@ export const generateLetterPdf = async (doc: LetterPdfDoc): Promise<Uint8Array> 
   // ---------- KOP SURAT ----------
   const drawKop = () => {
     const logoSize = 34;
+    const gap = 14;
+    const title = 'PT BADAN INDUSTRI NUSANTARA (PERSERO)';
+    const phone =
+      'Telepon: (021) 5299-8800 | Faksimili: (021) 5299-8801 | Surel: sekretariat@bin.co.id | www.bin.co.id';
+    const addr = wrap(
+      'Kantor Pusat: Gedung Sentra Graha Lt. 8-12, Jl. Jend. Sudirman Kav. 52-53, Jakarta 12190',
+      font,
+      8,
+      CONTENT_W - logoSize - gap
+    );
+
+    // Grup [logo + blok teks] dipusatkan; teks rata tengah di dalam bloknya
+    const titleW = bold.widthOfTextAtSize(title, 13);
+    const phoneW = font.widthOfTextAtSize(phone, 7.5);
+    const textW = Math.max(titleW, phoneW, ...addr.map((l) => font.widthOfTextAtSize(l, 8)));
+    const groupX = MARGIN + Math.max(0, (CONTENT_W - (logoSize + gap + textW)) / 2);
+    const textX = groupX + logoSize + gap;
+
     page.drawRectangle({
-      x: MARGIN,
+      x: groupX,
       y: y - logoSize,
       width: logoSize,
       height: logoSize,
       color: rgb(0.06, 0.24, 0.45),
     });
-    page.drawText('BIN', { x: MARGIN + 7, y: y - 23, size: 15, font: bold, color: rgb(1, 1, 1) });
+    const binW = bold.widthOfTextAtSize('BIN', 15);
+    page.drawText('BIN', { x: groupX + (logoSize - binW) / 2, y: y - 23, size: 15, font: bold, color: rgb(1, 1, 1) });
 
-    const tx = MARGIN + logoSize + 14;
-    page.drawText('PT BADAN INDUSTRI NUSANTARA (PERSERO)', {
-      x: tx,
-      y: y - 12,
-      size: 13,
-      font: bold,
-      color: black,
-    });
-    const addr = wrap(
-      'Kantor Pusat: Gedung Sentra Graha Lt. 8-12, Jl. Jend. Sudirman Kav. 52-53, Jakarta 12190',
-      font,
-      8,
-      CONTENT_W - logoSize - 14 - 90
-    );
+    const drawIn = (text: string, f: PDFFont, size: number, yPos: number, color: RGB) => {
+      const w = f.widthOfTextAtSize(text, size);
+      page.drawText(text, { x: textX + (textW - w) / 2, y: yPos, size, font: f, color });
+    };
+
+    drawIn(title, bold, 13, y - 12, black);
     let ky = y - 24;
     for (const l of addr) {
-      page.drawText(l, { x: tx, y: ky - 6, size: 8, font, color: slate6 });
+      drawIn(l, font, 8, ky - 6, slate6);
       ky -= 11;
     }
-    page.drawText('Telepon: (021) 5299-8800 | Faksimili: (021) 5299-8801 | Surel: sekretariat@bin.co.id | www.bin.co.id', {
-      x: tx,
-      y: ky - 6,
-      size: 7.5,
-      font,
-      color: slate5,
-    });
-    page.drawText('ISO 9001:2015', { x: A4_W - MARGIN - 62, y: y - 12, size: 8, font: bold, color: slate6 });
-    page.drawText('Cert No. ID-90827', { x: A4_W - MARGIN - 68, y: ky - 6, size: 7.5, font, color: slate5 });
+    drawIn(phone, font, 7.5, ky - 6, slate5);
 
     y = Math.min(ky - 6, y - logoSize) - 8;
     page.drawLine({
@@ -166,50 +195,56 @@ export const generateLetterPdf = async (doc: LetterPdfDoc): Promise<Uint8Array> 
   };
 
   // ---------- BLOK META ----------
-  const metaRow = (label: string, value: string, f: PDFFont = font) => {
-    page.drawText(label, { x: MARGIN, y: y - 9, size: 9.5, font, color: slate5 });
-    const lines = wrap(`: ${value}`, f, 9.5, CONTENT_W - LABEL_W);
-    drawLines(lines, MARGIN + LABEL_W, 9.5, f, black, 13);
+  const metaRow = (label: string, value: string, f: PDFFont = docFont) => {
+    page.drawText(label, { x: MARGIN, y: y - 8, size: DOC_SIZE, font: docFont, color: ink });
+    const lines = wrap(`: ${value}`, f, DOC_SIZE, CONTENT_W - LABEL_W);
+    drawLines(lines, MARGIN + LABEL_W, DOC_SIZE, f, ink, DOC_LEAD);
     y -= 2;
   };
 
   const drawMeta = () => {
     const dateLine = wrap(
       `Jakarta, ${formatTanggalSurat(doc.date || doc.receivedDate || doc.dateCreated || '4 Oktober 2026')}`,
-      font,
-      9.5,
+      docFont,
+      DOC_SIZE,
       CONTENT_W
     );
     for (const l of dateLine) {
-      page.drawText(l, { x: A4_W - MARGIN - font.widthOfTextAtSize(l, 9.5), y: y - 9, size: 9.5, font, color: black });
-      y -= 13;
+      page.drawText(l, {
+        x: A4_W - MARGIN - docFont.widthOfTextAtSize(l, DOC_SIZE),
+        y: y - 8,
+        size: DOC_SIZE,
+        font: docFont,
+        color: ink,
+      });
+      y -= DOC_LEAD;
     }
     y -= 10;
-    metaRow('Nomor', doc.letterNumber || doc.draftNumber || doc.agendaNumber || doc.documentNumber || '-', bold);
+    metaRow('Nomor', doc.letterNumber || doc.draftNumber || doc.agendaNumber || doc.documentNumber || '-', docBold);
     metaRow('Sifat', doc.urgency || doc.confidentiality || 'Biasa');
     metaRow('Lampiran', doc.lampiranText || `${doc.attachmentsCount || 1} berkas`);
     metaRow('Perihal', doc.subject || doc.title || '-');
     y -= 14;
 
-    const toLines = wrap(doc.recipient || doc.sender || 'Pimpinan Unit Kerja Terkait', bold, 9.5, CONTENT_W);
-    const orgLines = wrap(doc.recipientOrg || doc.organization || 'PT Badan Industri Nusantara', font, 9.5, CONTENT_W);
-    ensure(toLines.length * 13 + orgLines.length * 13 + 44);
-    page.drawText('Kepada Yth:', { x: MARGIN, y: y - 9, size: 9, font, color: slate5 });
+    const toLines = wrap(doc.recipient || doc.sender || 'Pimpinan Unit Kerja Terkait', docBold, DOC_SIZE, CONTENT_W);
+    const orgLines = wrap(doc.recipientOrg || doc.organization || 'PT Badan Industri Nusantara', docFont, DOC_SIZE, CONTENT_W);
+    ensure(toLines.length * DOC_LEAD + orgLines.length * DOC_LEAD + 44);
+    page.drawText('Kepada Yth:', { x: MARGIN, y: y - 8, size: DOC_SIZE, font: docFont, color: ink });
     y -= 15;
-    drawLines(toLines, MARGIN, 9.5, bold, black, 13);
-    drawLines(orgLines, MARGIN, 9.5, font, slate6, 13);
+    drawLines(toLines, MARGIN, DOC_SIZE, docBold, ink, DOC_LEAD);
+    drawLines(orgLines, MARGIN, DOC_SIZE, docFont, ink, DOC_LEAD);
     y -= 6;
-    page.drawText('Di tempat', { x: MARGIN, y: y - 9, size: 9.5, font, color: slate6 });
+    page.drawText('Di tempat', { x: MARGIN, y: y - 8, size: DOC_SIZE, font: docFont, color: ink });
     y -= 26;
   };
 
   // ---------- BODY ----------
   const drawParagraph = (text: string) => {
-    const lines = wrap(text, font, BODY_SIZE, CONTENT_W);
+    const lines = wrap(text, docFont, DOC_SIZE, CONTENT_W);
     for (const l of lines) {
-      ensure(BODY_LEAD);
-      page.drawText(l, { x: MARGIN, y: y - BODY_SIZE, size: BODY_SIZE, font, color: black });
-      y -= BODY_LEAD;
+      ensure(DOC_LEAD);
+      page.drawText(l, { x: MARGIN, y: y - DOC_SIZE, size: DOC_SIZE, font: docFont, color: ink });
+      y -= DOC_LEAD;
     }
     y -= 8;
   };
@@ -247,8 +282,8 @@ export const generateLetterPdf = async (doc: LetterPdfDoc): Promise<Uint8Array> 
     const padY = 4;
 
     const rowLines = (cells: string[], f: PDFFont) =>
-      cells.map((c, i) => wrap(c || '', f, BODY_SIZE, (widths[i] ?? CONTENT_W) - padX * 2));
-    const rowHeight = (lines: string[][]) => Math.max(...lines.map((l) => Math.max(l.length, 1))) * (BODY_SIZE + 2) + padY * 2;
+      cells.map((c, i) => wrap(c || '', f, DOC_SIZE, (widths[i] ?? CONTENT_W) - padX * 2));
+    const rowHeight = (lines: string[][]) => Math.max(...lines.map((l) => Math.max(l.length, 1))) * (DOC_SIZE + 2) + padY * 2;
 
     const drawRow = (cells: string[], f: PDFFont, isHeader: boolean) => {
       const lines = rowLines(cells, f);
@@ -267,20 +302,20 @@ export const generateLetterPdf = async (doc: LetterPdfDoc): Promise<Uint8Array> 
         });
         let ty = y - padY;
         for (const l of lines[i] || []) {
-          page.drawText(l, { x: x + padX, y: ty - BODY_SIZE + 2, size: BODY_SIZE, font: f, color: black });
-          ty -= BODY_SIZE + 2;
+          page.drawText(l, { x: x + padX, y: ty - DOC_SIZE + 2, size: DOC_SIZE, font: f, color: ink });
+          ty -= DOC_SIZE + 2;
         }
         x += widths[i];
       }
       y -= h;
     };
 
-    drawRow(header, bold, true);
+    drawRow(header, docBold, true);
     bodyRows.forEach((r) => {
       // baris harus tetap utuh; bila tak muat → halaman baru
-      const lines = rowLines(r, font);
+      const lines = rowLines(r, docFont);
       if (y - rowHeight(lines) < BOTTOM) addPage();
-      drawRow(r, font, false);
+      drawRow(r, docFont, false);
     });
     y -= 10;
   };
@@ -299,9 +334,9 @@ export const generateLetterPdf = async (doc: LetterPdfDoc): Promise<Uint8Array> 
       ? wrap(
           doc.tteProvider === 'bsre'
             ? 'Dokumen ini telah ditandatangani secara elektronik menggunakan sertifikat elektronik yang diterbitkan oleh Balai Sertifikasi Elektronik (BSrE), BSSN.'
-            : 'Dokumen ini telah ditandatangani secara elektronik melalui sistem e-Office PT BIN (provider: Lokal) — menunggu integrasi BSrE, BSSN.',
-          font,
-          7.5,
+            : 'Dokumen ini telah ditandatangani secara elektronik melalui sistem e-Office PT BIN (provider: Lokal) - menunggu integrasi BSrE, BSSN.',
+          docFont,
+          DOC_SIZE,
           CONTENT_W - 70
         )
       : [];
@@ -309,18 +344,13 @@ export const generateLetterPdf = async (doc: LetterPdfDoc): Promise<Uint8Array> 
     const leftLines = signed
       ? ['PT BADAN INDUSTRI NUSANTARA (PERSERO)']
       : ['PT BADAN INDUSTRI NUSANTARA (PERSERO)'];
-    const blockH = signed ? 165 : 95;
+    const blockH = signed ? 200 : 120;
     ensure(blockH);
 
-    page.drawLine({
-      start: { x: MARGIN, y },
-      end: { x: MARGIN + 250, y },
-      thickness: 0.7,
-      color: rgb(0.85, 0.87, 0.9),
-    });
     y -= 16;
-    page.drawText(leftLines[0], { x: MARGIN, y: y - 8, size: SMALL, font, color: slate6 });
-    y -= signed ? 34 : 26;
+    page.drawText(leftLines[0], { x: MARGIN, y: y - 8, size: DOC_SIZE, font: docFont, color: ink });
+    // 2 baris kosong antara nama perusahaan dan nama penandatangan
+    y -= (signed ? 34 : 26) + 26;
 
     if (signed) {
       page.drawRectangle({
@@ -335,29 +365,26 @@ export const generateLetterPdf = async (doc: LetterPdfDoc): Promise<Uint8Array> 
       page.drawText('Ditandatangani secara Elektronik', {
         x: MARGIN + 6,
         y: y - 10,
-        size: 7.5,
-        font: bold,
-        color: blue9,
+        size: DOC_SIZE,
+        font: docBold,
+        color: ink,
       });
       y -= 26;
     } else {
       y -= 6;
     }
 
-    page.drawText(enc(signerName), { x: MARGIN, y: y - 10, size: 9.5, font: bold, color: black });
+    page.drawText(enc(signerName), { x: MARGIN, y: y - 8, size: DOC_SIZE, font: docBold, color: ink });
     y -= 14;
-    page.drawText(enc(signerTitle), { x: MARGIN, y: y - 10, size: 9, font: bold, color: black });
+    page.drawText(enc(signerTitle), { x: MARGIN, y: y - 8, size: DOC_SIZE, font: docBold, color: ink });
     y -= 13;
     if (signed) {
-      page.drawText(`Timestamp: ${doc.tteDate || ''}`, { x: MARGIN, y: y - 8, size: 7.5, font, color: slate5 });
-      y -= 15;
-    } else {
-      page.drawText('NIP. BIN-19750812-001', { x: MARGIN, y: y - 8, size: 8, font, color: slate5 });
-      y -= 15;
+      page.drawText(`Timestamp: ${doc.tteDate || ''}`, { x: MARGIN, y: y - 8, size: DOC_SIZE, font: docFont, color: ink });
+      y -= DOC_LEAD;
     }
     for (const l of complianceLines) {
-      page.drawText(l, { x: MARGIN, y: y - 7, size: 7.5, font: italic, color: slate5 });
-      y -= 10;
+      page.drawText(l, { x: MARGIN, y: y - 7, size: DOC_SIZE, font: docFont, color: ink });
+      y -= DOC_LEAD;
     }
 
     // QR — hanya bila sudah TTE (dataQR lama tanpa qrDataUrl → generate fallback)
@@ -371,14 +398,16 @@ export const generateLetterPdf = async (doc: LetterPdfDoc): Promise<Uint8Array> 
         const qy = y - size + 10;
         page.drawRectangle({ x: qx - 4, y: qy - 4, width: size + 8, height: size + 8, borderColor: rgb(0.8, 0.83, 0.88), borderWidth: 0.7 });
         page.drawImage(qr, { x: qx, y: qy, width: size, height: size });
-        const caption = wrap('Terverifikasi Elektronik', font, 7.5, size + 8);
+        const caption = wrap('Terverifikasi Elektronik', docFont, DOC_SIZE, size + 8);
         let cy = qy - 12;
         for (const l of caption) {
-          page.drawText(l, { x: qx - 4, y: cy, size: 7.5, font: bold, color: slate6 });
-          cy -= 9;
+          page.drawText(l, { x: qx - 4, y: cy, size: DOC_SIZE, font: docBold, color: ink });
+          cy -= DOC_LEAD;
         }
-        if (doc.qrVerifyCode) {
-          page.drawText(enc(doc.qrVerifyCode).slice(0, 26), { x: qx - 4, y: cy - 1, size: 6.5, font, color: slate5 });
+        const codeLines = wrap(doc.qrVerifyCode, docFont, DOC_SIZE, size + 8);
+        for (const l of codeLines) {
+          page.drawText(enc(l), { x: qx - 4, y: cy - 1, size: DOC_SIZE, font: docFont, color: ink });
+          cy -= DOC_LEAD;
         }
       } catch {
         /* QR gagal embed — abaikan */
@@ -398,11 +427,11 @@ export const generateLetterPdf = async (doc: LetterPdfDoc): Promise<Uint8Array> 
       color: rgb(0.9, 0.92, 0.94),
     });
     y -= 14;
-    page.drawText('Tembusan:', { x: MARGIN, y: y - 8, size: SMALL, font: bold, color: slate6 });
-    y -= 13;
-    for (const l of wrap(doc.tembusanText, font, SMALL, CONTENT_W)) {
-      page.drawText(l, { x: MARGIN, y: y - 8, size: SMALL, font, color: slate6 });
-      y -= 11;
+    page.drawText('Tembusan:', { x: MARGIN, y: y - 8, size: DOC_SIZE, font: docBold, color: ink });
+    y -= DOC_LEAD;
+    for (const l of wrap(doc.tembusanText, docFont, DOC_SIZE, CONTENT_W)) {
+      page.drawText(l, { x: MARGIN, y: y - 8, size: DOC_SIZE, font: docFont, color: ink });
+      y -= DOC_LEAD;
     }
   };
 

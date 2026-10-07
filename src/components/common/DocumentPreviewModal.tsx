@@ -16,7 +16,11 @@ const CONTENT_W = PAGE_W - PAGE_PAD * 2;
 const CONTENT_H = PAGE_H - PAGE_PAD * 2;
 const FIT_BUFFER = 6;
 
-const BODY_CLASS = 'my-8 text-[13px] leading-relaxed text-slate-800 whitespace-pre-line text-justify font-normal';
+// Font dokumen resmi: Tahoma 11px hitam — berlaku dari blok tanggal sampai tembusan
+const DOC_FONT = 'Tahoma, Verdana, Geneva, sans-serif';
+const DOC_STYLE: React.CSSProperties = { fontFamily: DOC_FONT, color: '#000000' };
+
+const BODY_CLASS = 'my-8 text-[11px] leading-relaxed text-black whitespace-pre-line text-justify font-normal';
 
 type Block = { key: string; node: React.ReactNode; text?: string };
 type PageItem = { key: string; text?: string };
@@ -117,7 +121,7 @@ export const DocumentPreviewModal: React.FC = () => {
     const key = `body-${idx}`;
 
     if (seg.type === 'paragraph') {
-      return { key, text: seg.text, node: <p className={BODY_CLASS}>{seg.text}</p> };
+      return { key, text: seg.text, node: <p className={BODY_CLASS} style={DOC_STYLE}>{seg.text}</p> };
     }
 
     if (seg.type === 'image') {
@@ -141,8 +145,8 @@ export const DocumentPreviewModal: React.FC = () => {
     return {
       key,
       node: (
-        <div className="my-6 overflow-x-auto">
-          <table className={`w-full border-collapse text-xs ${hasWidths ? 'table-fixed' : ''}`}>
+        <div className="my-6 overflow-x-auto" style={DOC_STYLE}>
+          <table className={`w-full border-collapse text-[11px] ${hasWidths ? 'table-fixed' : ''}`}>
             {hasWidths && (
               <colgroup>
                 {seg.widths!.map((w, ci) => (
@@ -155,7 +159,7 @@ export const DocumentPreviewModal: React.FC = () => {
                 {seg.rows[0].map((cell, ci) => (
                   <th
                     key={ci}
-                    className="border border-slate-300 bg-slate-50 px-2 py-1.5 text-left font-semibold text-slate-800"
+                    className="border border-slate-300 bg-slate-50 px-2 py-1.5 text-left font-semibold text-black"
                   >
                     {cell}
                   </th>
@@ -166,7 +170,7 @@ export const DocumentPreviewModal: React.FC = () => {
               {seg.rows.slice(1).map((row, ri) => (
                 <tr key={ri}>
                   {row.map((cell, ci) => (
-                    <td key={ci} className="border border-slate-300 px-2 py-1.5 text-slate-700">
+                    <td key={ci} className="border border-slate-300 px-2 py-1.5 text-black">
                       {cell}
                     </td>
                   ))}
@@ -185,26 +189,20 @@ export const DocumentPreviewModal: React.FC = () => {
           key: 'kop',
           node: (
             <div className="border-b-2 border-slate-900 pb-4 mb-6">
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="w-14 h-14 bg-gradient-to-br from-blue-900 to-slate-900 text-white rounded flex items-center justify-center font-bold text-xl tracking-tight border border-blue-950 shadow-sm">
-                    BIN
-                  </div>
-                  <div>
-                    <h1 className="text-lg font-bold tracking-tight text-slate-950 uppercase leading-snug">
-                      PT BADAN INDUSTRI NUSANTARA (PERSERO)
-                    </h1>
-                    <p className="text-xs font-medium text-slate-600 tracking-wide">
-                      Kantor Pusat: Gedung Sentra Graha Lt. 8-12, Jl. Jend. Sudirman Kav. 52-53, Jakarta 12190
-                    </p>
-                    <p className="text-[11px] text-slate-500">
-                      Telepon: (021) 5299-8800 | Faksimili: (021) 5299-8801 | Surel: sekretariat@bin.co.id | www.bin.co.id
-                    </p>
-                  </div>
+              <div className="flex items-center justify-center gap-4">
+                <div className="w-14 h-14 shrink-0 bg-gradient-to-br from-blue-900 to-slate-900 text-white rounded flex items-center justify-center font-bold text-xl tracking-tight border border-blue-950 shadow-sm">
+                  BIN
                 </div>
-                <div className="text-right text-[11px] text-slate-500">
-                  <span className="block font-semibold text-slate-700">ISO 9001:2015</span>
-                  <span className="block">Cert No. ID-90827</span>
+                <div className="text-center">
+                  <h1 className="text-lg font-bold tracking-tight text-slate-950 uppercase leading-snug">
+                    PT BADAN INDUSTRI NUSANTARA (PERSERO)
+                  </h1>
+                  <p className="text-xs font-medium text-slate-600 tracking-wide">
+                    Kantor Pusat: Gedung Sentra Graha Lt. 8-12, Jl. Jend. Sudirman Kav. 52-53, Jakarta 12190
+                  </p>
+                  <p className="text-[11px] text-slate-500">
+                    Telepon: (021) 5299-8800 | Faksimili: (021) 5299-8801 | Surel: sekretariat@bin.co.id | www.bin.co.id
+                  </p>
                 </div>
               </div>
             </div>
@@ -213,36 +211,36 @@ export const DocumentPreviewModal: React.FC = () => {
         {
           key: 'meta',
           node: (
-            <div className="text-xs mb-6">
-              <p className="text-slate-700 text-right">
+            <div className="text-[11px] text-black mb-6" style={DOC_STYLE}>
+              <p className="text-black text-right">
                 Jakarta, {formatTanggalSurat(doc.date || doc.receivedDate || doc.dateCreated || '4 Oktober 2026')}
               </p>
 
               <div className="space-y-1 mt-4">
                 <div className="flex">
-                  <span className="w-24 shrink-0 text-slate-500">Nomor</span>
-                  <span className="text-slate-900 font-semibold">
+                  <span className="w-24 shrink-0 text-black">Nomor</span>
+                  <span className="text-black font-semibold">
                     : {doc.letterNumber || doc.draftNumber || doc.agendaNumber || doc.documentNumber || '-'}
                   </span>
                 </div>
                 <div className="flex">
-                  <span className="w-24 shrink-0 text-slate-500">Sifat</span>
-                  <span className="text-slate-900 font-medium">: {doc.urgency || doc.confidentiality || 'Biasa'}</span>
+                  <span className="w-24 shrink-0 text-black">Sifat</span>
+                  <span className="text-black font-medium">: {doc.urgency || doc.confidentiality || 'Biasa'}</span>
                 </div>
                 <div className="flex">
-                  <span className="w-24 shrink-0 text-slate-500">Lampiran</span>
-                  <span className="text-slate-900">: {doc.lampiranText || `${doc.attachmentsCount || 1} berkas`}</span>
+                  <span className="w-24 shrink-0 text-black">Lampiran</span>
+                  <span className="text-black">: {doc.lampiranText || `${doc.attachmentsCount || 1} berkas`}</span>
                 </div>
                 <div className="flex">
-                  <span className="w-24 shrink-0 text-slate-500">Perihal</span>
-                  <span className="text-slate-900 font-semibold">: {doc.subject || doc.title}</span>
+                  <span className="w-24 shrink-0 text-black">Perihal</span>
+                  <span className="text-black font-semibold">: {doc.subject || doc.title}</span>
                 </div>
 
                 <div className="mt-4">
-                  <p className="text-slate-500 text-[11px]">Kepada Yth:</p>
-                  <p className="font-semibold text-slate-900">{doc.recipient || doc.sender || 'Pimpinan Unit Kerja Terkait'}</p>
-                  <p className="text-slate-600">{doc.recipientOrg || doc.organization || 'PT Badan Industri Nusantara'}</p>
-                  <p className="text-slate-600 mt-1">Di tempat</p>
+                  <p className="text-black">Kepada Yth:</p>
+                  <p className="font-semibold text-black">{doc.recipient || doc.sender || 'Pimpinan Unit Kerja Terkait'}</p>
+                  <p className="text-black">{doc.recipientOrg || doc.organization || 'PT Badan Industri Nusantara'}</p>
+                  <p className="text-black mt-1">Di tempat</p>
                 </div>
               </div>
             </div>
@@ -252,42 +250,43 @@ export const DocumentPreviewModal: React.FC = () => {
         {
           key: 'sign',
           node: (
-            <div className="mt-12 pt-4 flex items-end justify-between border-t border-slate-200">
+            <div className="mt-12 pt-4 flex items-end justify-between" style={DOC_STYLE}>
               {/* Signer Title */}
               <div className="text-left">
-                <p className="text-xs text-slate-600">PT BADAN INDUSTRI NUSANTARA (PERSERO)</p>
+                <p className="text-[11px] text-black">PT BADAN INDUSTRI NUSANTARA (PERSERO)</p>
+                <p className="text-[11px] leading-6">&nbsp;</p>
+                <p className="text-[11px] leading-6">&nbsp;</p>
 
                 {doc.tteStatus === 'Sudah TTE' ? (
                   <div className="text-left">
-                    <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-900 bg-blue-50 px-2 py-1 rounded border border-blue-200 mt-8 mb-1">
+                    <div className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-black bg-blue-50 px-2 py-1 rounded border border-blue-200 mt-8 mb-1">
                       <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                       <span>Ditandatangani secara Elektronik</span>
                     </div>
-                    <p className="text-xs font-bold text-slate-900">
+                    <p className="text-[11px] font-bold text-black">
                       {doc.tteSigner ? doc.tteSigner.split('(')[0].trim() : 'Ir. H. Hendrawan Suprayogi, M.M.'}
                     </p>
-                    <p className="text-xs font-semibold text-slate-900">
+                    <p className="text-[11px] font-semibold text-black">
                       {doc.tteSigner ? doc.tteSigner.split('(')[1]?.replace(')', '') || 'Direktur Utama' : 'Direktur Utama'}
                     </p>
-                    <p className="text-[10px] text-slate-500 font-mono">
+                    <p className="text-[11px] text-black">
                       Timestamp: {doc.tteDate || '2026-10-04 15:45 WIB'}
                     </p>
-                    <p className="text-[9px] text-slate-400 italic max-w-[340px] mt-2 leading-snug">
+                    <p className="text-[11px] text-black max-w-[340px] mt-2 leading-snug">
                       {doc.tteProvider === 'bsre'
                         ? 'Dokumen ini telah ditandatangani secara elektronik menggunakan sertifikat elektronik yang diterbitkan oleh Balai Sertifikasi Elektronik (BSrE), BSSN.'
-                        : 'Dokumen ini telah ditandatangani secara elektronik melalui sistem e-Office PT BIN (provider: Lokal) — menunggu integrasi BSrE, BSSN.'}
+                        : 'Dokumen ini telah ditandatangani secara elektronik melalui sistem e-Office PT BIN (provider: Lokal) - menunggu integrasi BSrE, BSSN.'}
                     </p>
                   </div>
                 ) : (
                   <div className="text-left">
                     <div className="h-10"></div>
-                    <p className="text-xs font-bold text-slate-900">
+                    <p className="text-[11px] font-bold text-black">
                       {doc.creatorName || 'Ir. H. Hendrawan Suprayogi, M.M.'}
                     </p>
-                    <p className="text-xs font-semibold text-slate-900">
+                    <p className="text-[11px] font-semibold text-black">
                       {doc.tteSigner ? doc.tteSigner.split('(')[1]?.replace(')', '') || 'Direktur Utama' : 'Direktur Utama'}
                     </p>
-                    <p className="text-[10px] text-slate-500">NIP. BIN-19750812-001</p>
                   </div>
                 )}
               </div>
@@ -308,17 +307,17 @@ export const DocumentPreviewModal: React.FC = () => {
                       </div>
                     )}
                   </div>
-                  <div className="text-[11px] space-y-0.5">
-                    <div className="flex items-center gap-1 text-emerald-700 font-semibold">
-                      <ShieldCheck className="w-3.5 h-3.5" />
+                  <div className="text-[11px] space-y-0.5 text-black">
+                    <div className="flex items-center gap-1 text-black font-semibold">
+                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
                       <span>Terverifikasi Elektronik</span>
                     </div>
-                    <p className="text-slate-500 font-mono text-[10px]">
+                    <p className="text-black">
                       {doc.qrVerifyCode || '-'}
                     </p>
                     <button
                       onClick={handleVerifyQR}
-                      className="text-blue-600 hover:text-blue-800 text-[10px] underline font-medium"
+                      className="text-black underline font-medium text-[11px]"
                     >
                       Cek Validitas TTE
                     </button>
@@ -333,9 +332,9 @@ export const DocumentPreviewModal: React.FC = () => {
               {
                 key: 'tembusan',
                 node: (
-                  <div className="mt-6 pt-4 border-t border-slate-100 text-xs">
-                    <p className="font-semibold text-slate-700 mb-1">Tembusan:</p>
-                    <p className="text-slate-600 whitespace-pre-line">{doc.tembusanText}</p>
+                  <div className="mt-6 pt-4 border-t border-slate-100 text-[11px] text-black" style={DOC_STYLE}>
+                    <p className="font-semibold text-black mb-1">Tembusan:</p>
+                    <p className="text-black whitespace-pre-line">{doc.tembusanText}</p>
                   </div>
                 ),
               } as Block,
@@ -456,7 +455,7 @@ export const DocumentPreviewModal: React.FC = () => {
           {watermark}
           {items.map((it, j) =>
             it.text !== undefined ? (
-              <p key={`${it.key}-${j}`} className={BODY_CLASS}>
+              <p key={`${it.key}-${j}`} className={BODY_CLASS} style={DOC_STYLE}>
                 {it.text}
               </p>
             ) : (
