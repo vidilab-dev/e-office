@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { useOffice } from '../../context/OfficeContext';
 import { TravelRequest, TravelExpenseItem } from '../../types';
+import { formatTanggalSurat } from '../../utils/formatDate';
 
 export const PerjalananDinasView: React.FC = () => {
   const {
@@ -549,7 +550,9 @@ export const PerjalananDinasView: React.FC = () => {
                   </div>
 
                   <div className="text-right">
-                    <p className="text-[11px] text-slate-500">Jakarta, {selectedForSpdPreview.approvedDate || '04 Oktober 2026'}</p>
+                    <p className="text-[11px] text-slate-500">
+                      Jakarta, {formatTanggalSurat(selectedForSpdPreview.approvedDate || '4 Oktober 2026')}
+                    </p>
                     <p className="text-[11px] font-semibold text-slate-900">An. Direksi PT BIN</p>
                     <div className="h-10 flex items-center justify-end">
                       <span className="text-[10px] text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">

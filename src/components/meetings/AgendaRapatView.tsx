@@ -31,6 +31,8 @@ export const AgendaRapatView: React.FC = () => {
   const [roomOrLink, setRoomOrLink] = useState('Ruang Rapat Garuda Lt. 5');
   const [isOnline, setIsOnline] = useState(false);
   const [agendaText, setAgendaText] = useState('1. Pembahasan Roadmap\n2. Alokasi Anggaran');
+  const [invitedIds, setInvitedIds] = useState<string[]>([]);
+  const [inviteSearch, setInviteSearch] = useState('');
 
   // Minutes Form State
   const [minutesNotes, setMinutesNotes] = useState('');
@@ -44,9 +46,25 @@ export const AgendaRapatView: React.FC = () => {
     { description: string; picId: string; picName: string; deadline: string }[]
   >([]);
 
+  const toggleInvite = (id: string) => {
+    setInvitedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  };
+
+  const inviteCandidates = users.filter((u) => {
+    const q = inviteSearch.trim().toLowerCase();
+    if (!q) return true;
+    return (
+      u.name.toLowerCase().includes(q) ||
+      u.title.toLowerCase().includes(q) ||
+      u.unit.toLowerCase().includes(q)
+    );
+  });
+
   const handleCreateMeetingSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!title) return;
+
+    const invitedUsers = users.filter((u) => invitedIds.includes(u.id));
 
     createMeeting({
       title,
@@ -58,11 +76,14 @@ export const AgendaRapatView: React.FC = () => {
       chairPerson: currentUser.name,
       notary: currentUser.name,
       agendaItems: agendaText.split('\n').filter((x) => x.trim()),
-      attendees: users.slice(0, 5).map((u) => u.name),
+      attendees: invitedUsers.length > 0 ? invitedUsers.map((u) => u.name) : [currentUser.name],
+      attendeeIds: invitedUsers.map((u) => u.id),
     });
 
     setIsNewMeetingModalOpen(false);
     setTitle('');
+    setInvitedIds([]);
+    setInviteSearch('');
   };
 
   const handleAddActionItem = () => {
@@ -299,6 +320,81 @@ export const AgendaRapatView: React.FC = () => {
                   onChange={(e) => setAgendaText(e.target.value)}
                   className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg"
                 ></textarea>
+              </div>
+
+              {/* Peserta yang diundang */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-semibold text-slate-700">Peserta yang Diundang</label>
+                  <span className="text-[10px] font-semibold text-blue-900 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded">
+                    {invitedIds.length} dipilih
+                  </span>
+                </div>
+
+                <div className="relative mb-1.5">
+                  <input
+                    type="text"
+                    value={inviteSearch}
+                    onChange={(e) => setInviteSearch(e.target.value)}
+                    placeholder="Cari nama, jabatan, atau unit pegawai..."
+                    className="w-full pl-8 pr-3 py-1.5 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900"
+                  />
+                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2" />
+                </div>
+
+                <div className="max-h-36 overflow-y-auto border border-slate-200 rounded-lg divide-y divide-slate-100 bg-white">
+                  {inviteCandidates.map((u) => (
+                    <label
+                      key={u.id}
+                      className="flex items-center gap-2.5 px-3 py-1.5 text-xs cursor-pointer hover:bg-slate-50 transition-colors"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={invitedIds.includes(u.id)}
+                        onChange={() => toggleInvite(u.id)}
+                        className="rounded border-slate-300 text-blue-900 focus:ring-blue-900"
+                      />
+                      <span className="min-w-0 flex-1">
+                        <span className="font-semibold text-slate-800 block truncate">{u.name}</span>
+                        <span className="text-[10px] text-slate-500 block truncate">
+                          {u.title} · {u.unit}
+                        </span>
+                      </span>
+                      {invitedIds.includes(u.id) && (
+                        <span className="shrink-0 text-[9px] font-bold text-blue-900 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded">
+                          Diundang
+                        </span>
+                      )}
+                    </label>
+                  ))}
+                  {inviteCandidates.length === 0 && (
+                    <p className="p-3 text-[11px] text-center text-slate-400">
+                      Tidak ada pegawai yang cocok.
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex items-center justify-between mt-1">
+                  <p className="text-[10px] text-slate-500">
+                    Peserta terpilih akan menerima notifikasi undangan rapat.
+                  </p>
+                  <div className="flex items-center gap-2 text-[10px]">
+                    <button
+                      type="button"
+                      onClick={() => setInvitedIds(inviteCandidates.map((u) => u.id))}
+                      className="text-blue-700 hover:text-blue-900 font-semibold"
+                    >
+                      Pilih semua
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setInvitedIds([])}
+                      className="text-slate-500 hover:text-slate-700 font-semibold"
+                    >
+                      Kosongkan
+                    </button>
+                  </div>
+                </div>
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200">

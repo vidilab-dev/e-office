@@ -1,6 +1,11 @@
 node_modules/
 build/
 dist/
+.next/
+out/
+.playwright-mcp/
+server.log
+*.tsbuildinfo
 coverage/
 .DS_Store
 *.log

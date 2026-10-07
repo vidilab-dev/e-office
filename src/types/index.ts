@@ -272,6 +272,7 @@ export interface Meeting {
   unit: string;
   agendaItems: string[];
   attendees: string[]; // employee names
+  attendeeIds?: string[]; // user ids peserta yang diundang (untuk notifikasi)
   status: 'Terjadwal' | 'Berlangsung' | 'Selesai' | 'Dibatalkan';
   minutesNotes?: string;
   decisions?: string[];
@@ -359,7 +360,7 @@ export interface NotificationItem {
   message: string;
   time: string;
   read: boolean;
-  type: 'disposition' | 'approval' | 'deadline' | 'travel' | 'leave' | 'system';
+  type: 'disposition' | 'approval' | 'deadline' | 'travel' | 'leave' | 'meeting' | 'system';
   targetModule: string;
   targetId?: string;
 }

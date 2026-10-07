@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { useOffice } from '../../context/OfficeContext';
 import { OutgoingLetter, OutgoingLetterType, LetterUrgency } from '../../types';
+import { ContentEditor } from '../common/ContentEditor';
 
 export const SuratKeluarView: React.FC = () => {
   const {
@@ -428,14 +429,13 @@ export const SuratKeluarView: React.FC = () => {
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">Isi Surat / Konten Resmi</label>
-                <textarea
+                <ContentEditor
                   rows={6}
                   required
                   value={content}
-                  onChange={(e) => setContent(e.target.value)}
+                  onChange={setContent}
                   placeholder="Ketik narasi resmi isi surat di sini..."
-                  className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 font-sans leading-relaxed"
-                ></textarea>
+                />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

@@ -32,7 +32,8 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
   const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
   const [isNotifDropdownOpen, setIsNotifDropdownOpen] = useState(false);
 
-  const unreadCount = notifications.filter((n) => !n.read).length;
+  const myNotifications = notifications.filter((n) => n.userId === currentUser.id);
+  const unreadCount = myNotifications.filter((n) => !n.read).length;
 
   return (
     <header className="sticky top-0 z-40 bg-white border-b border-slate-200">
@@ -166,10 +167,10 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
                 </div>
 
                 <div className="max-h-72 overflow-y-auto divide-y divide-slate-100">
-                  {notifications.length === 0 ? (
+                  {myNotifications.length === 0 ? (
                     <p className="p-4 text-xs text-center text-slate-400">Tidak ada notifikasi baru.</p>
                   ) : (
-                    notifications.map((n) => (
+                    myNotifications.map((n) => (
                       <div
                         key={n.id}
                         onClick={() => {

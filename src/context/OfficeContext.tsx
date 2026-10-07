@@ -45,6 +45,8 @@ import {
 
 const MONTH_ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'];
 
+const safeStorage: Storage | null = typeof window !== 'undefined' ? window.localStorage : null;
+
 interface OfficeContextType {
   currentUser: User;
   users: User[];
@@ -147,102 +149,102 @@ const OfficeContext = createContext<OfficeContextType | undefined>(undefined);
 
 export const OfficeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [users, setUsers] = useState<User[]>(() => {
-    const saved = localStorage.getItem('eoffice_users');
+    const saved = safeStorage?.getItem('eoffice_users');
     return saved ? JSON.parse(saved) : INITIAL_USERS;
   });
   const [currentUserId, setCurrentUserId] = useState<string>(() => {
-    return localStorage.getItem('eoffice_current_user') || 'usr-1'; // Default: Direktur Utama
+    return safeStorage?.getItem('eoffice_current_user') || 'usr-1'; // Default: Direktur Utama
   });
 
   const currentUser = users.find((u) => u.id === currentUserId) || users[0];
 
   const [units, setUnits] = useState<UnitKerja[]>(() => {
-    const saved = localStorage.getItem('eoffice_units');
+    const saved = safeStorage?.getItem('eoffice_units');
     return saved ? JSON.parse(saved) : INITIAL_UNITS;
   });
 
   const [workflowConfigs, setWorkflowConfigs] = useState<WorkflowConfig[]>(() => {
-    const saved = localStorage.getItem('eoffice_workflows');
+    const saved = safeStorage?.getItem('eoffice_workflows');
     return saved ? JSON.parse(saved) : INITIAL_WORKFLOW_CONFIGS;
   });
 
   const [systemSettings, setSystemSettings] = useState<SystemSettings>(() => {
-    const saved = localStorage.getItem('eoffice_system_settings');
+    const saved = safeStorage?.getItem('eoffice_system_settings');
     return saved ? JSON.parse(saved) : INITIAL_SYSTEM_SETTINGS;
   });
 
   const [rolePermissions, setRolePermissions] = useState<RolePermission[]>(() => {
-    const saved = localStorage.getItem('eoffice_role_permissions');
+    const saved = safeStorage?.getItem('eoffice_role_permissions');
     return saved ? JSON.parse(saved) : INITIAL_ROLE_PERMISSIONS;
   });
 
   const [inboundLetters, setInboundLetters] = useState<InboundLetter[]>(() => {
-    const saved = localStorage.getItem('eoffice_inbound_letters');
+    const saved = safeStorage?.getItem('eoffice_inbound_letters');
     return saved ? JSON.parse(saved) : INITIAL_INBOUND_LETTERS;
   });
 
   const [outgoingLetters, setOutgoingLetters] = useState<OutgoingLetter[]>(() => {
-    const saved = localStorage.getItem('eoffice_outgoing_letters');
+    const saved = safeStorage?.getItem('eoffice_outgoing_letters');
     return saved ? JSON.parse(saved) : INITIAL_OUTGOING_LETTERS;
   });
 
   const [dispositions, setDispositions] = useState<DispositionChainStep[]>(() => {
-    const saved = localStorage.getItem('eoffice_dispositions');
+    const saved = safeStorage?.getItem('eoffice_dispositions');
     return saved ? JSON.parse(saved) : INITIAL_DISPOSITIONS;
   });
 
   const [letterNumbers, setLetterNumbers] = useState<LetterNumberRecord[]>(() => {
-    const saved = localStorage.getItem('eoffice_letter_numbers');
+    const saved = safeStorage?.getItem('eoffice_letter_numbers');
     return saved ? JSON.parse(saved) : INITIAL_LETTER_NUMBERS;
   });
 
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>(() => {
-    const saved = localStorage.getItem('eoffice_leave_requests');
+    const saved = safeStorage?.getItem('eoffice_leave_requests');
     return saved ? JSON.parse(saved) : INITIAL_LEAVE_REQUESTS;
   });
 
   const [leaveBalances, setLeaveBalances] = useState<Record<string, LeaveBalance>>(() => {
-    const saved = localStorage.getItem('eoffice_leave_balances');
+    const saved = safeStorage?.getItem('eoffice_leave_balances');
     return saved ? JSON.parse(saved) : INITIAL_LEAVE_BALANCES;
   });
 
   const [travelRequests, setTravelRequests] = useState<TravelRequest[]>(() => {
-    const saved = localStorage.getItem('eoffice_travel_requests');
+    const saved = safeStorage?.getItem('eoffice_travel_requests');
     return saved ? JSON.parse(saved) : INITIAL_TRAVEL_REQUESTS;
   });
 
   const [meetings, setMeetings] = useState<Meeting[]>(() => {
-    const saved = localStorage.getItem('eoffice_meetings');
+    const saved = safeStorage?.getItem('eoffice_meetings');
     return saved ? JSON.parse(saved) : INITIAL_MEETINGS;
   });
 
   const [tasks, setTasks] = useState<OfficeTask[]>(() => {
-    const saved = localStorage.getItem('eoffice_tasks');
+    const saved = safeStorage?.getItem('eoffice_tasks');
     return saved ? JSON.parse(saved) : INITIAL_TASKS;
   });
 
   const [archives, setArchives] = useState<DigitalArchive[]>(() => {
-    const saved = localStorage.getItem('eoffice_archives');
+    const saved = safeStorage?.getItem('eoffice_archives');
     return saved ? JSON.parse(saved) : INITIAL_ARCHIVES;
   });
 
   const [templates, setTemplates] = useState<DocumentTemplate[]>(() => {
-    const saved = localStorage.getItem('eoffice_templates');
+    const saved = safeStorage?.getItem('eoffice_templates');
     return saved ? JSON.parse(saved) : INITIAL_TEMPLATES;
   });
 
   const [numberingRules, setNumberingRules] = useState<NumberingRuleConfig[]>(() => {
-    const saved = localStorage.getItem('eoffice_numbering_rules');
+    const saved = safeStorage?.getItem('eoffice_numbering_rules');
     return saved ? JSON.parse(saved) : INITIAL_NUMBERING_RULES;
   });
 
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>(() => {
-    const saved = localStorage.getItem('eoffice_audit_logs');
+    const saved = safeStorage?.getItem('eoffice_audit_logs');
     return saved ? JSON.parse(saved) : INITIAL_AUDIT_LOGS;
   });
 
   const [notifications, setNotifications] = useState<NotificationItem[]>(() => {
-    const saved = localStorage.getItem('eoffice_notifications');
+    const saved = safeStorage?.getItem('eoffice_notifications');
     return saved ? JSON.parse(saved) : INITIAL_NOTIFICATIONS;
   });
 
@@ -1429,6 +1431,11 @@ export const OfficeProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const createMeeting = (data: Partial<Meeting>): Meeting => {
     const id = `mtg-${Date.now()}`;
+    const inviteeIds = data.attendeeIds?.length
+      ? data.attendeeIds
+      : (data.attendees || [])
+          .map((name) => users.find((u) => u.name === name)?.id)
+          .filter((uid): uid is string => Boolean(uid));
     const newMeeting: Meeting = {
       id,
       title: data.title || 'Rapat Koordinasi Unit Kerja',
@@ -1442,11 +1449,31 @@ export const OfficeProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       unit: data.unit || currentUser.unit,
       agendaItems: data.agendaItems || ['Pembahasan agenda umum'],
       attendees: data.attendees || [currentUser.name],
+      attendeeIds: inviteeIds,
       status: 'Terjadwal',
       actionItems: [],
     };
 
     setMeetings((prev) => [newMeeting, ...prev]);
+
+    // Notifikasi undangan rapat untuk setiap peserta yang diundang
+    const invitees = inviteeIds
+      .map((uid) => users.find((u) => u.id === uid))
+      .filter((u): u is NonNullable<typeof u> => Boolean(u));
+    if (invitees.length > 0) {
+      const meetingNotifs: NotificationItem[] = invitees.map((u, idx) => ({
+        id: `notif-${Date.now()}-${idx}`,
+        userId: u.id,
+        title: 'Undangan Rapat Baru',
+        message: `Anda diundang ke rapat "${newMeeting.title}" pada ${newMeeting.date}, pukul ${newMeeting.timeStart}-${newMeeting.timeEnd} WIB di ${newMeeting.roomOrLink}.`,
+        time: 'Baru saja',
+        read: false,
+        type: 'meeting',
+        targetModule: 'agenda-rapat',
+        targetId: newMeeting.id,
+      }));
+      setNotifications((prev) => [...meetingNotifs, ...prev]);
+    }
 
     addAuditLog(
       'CREATE_DOCUMENT',
