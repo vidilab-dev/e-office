@@ -1232,7 +1232,7 @@ export const INITIAL_ROLE_PERMISSIONS = [
     canApprove: true,
     canDispose: true,
     canIssueNumber: false,
-    canSignTTE: false,
+    canSignTTE: true,
     canViewConfidential: false,
     canManageUsers: false,
     canExportAudit: false,

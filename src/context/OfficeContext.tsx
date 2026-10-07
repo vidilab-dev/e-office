@@ -42,6 +42,9 @@ import {
   INITIAL_SYSTEM_SETTINGS,
   INITIAL_ROLE_PERMISSIONS,
 } from '../data/initialData';
+import { getTteProvider } from '../services/tte';
+import { generateLetterPdf, letterPdfFileName } from '../services/pdf/letterPdf';
+import { makeQrDataUrl } from '../utils/qr';
 
 const MONTH_ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'];
 
@@ -115,7 +118,7 @@ interface OfficeContextType {
     delegateToUserId?: string
   ) => void;
   issueLetterNumber: (letterId: string) => string;
-  applyTteSignature: (letterId: string) => void;
+  applyTteSignature: (letterId: string) => Promise<void>;
   submitLeaveRequest: (data: Omit<LeaveRequest, 'id' | 'status' | 'appliedDate' | 'balanceBefore' | 'balanceAfter'>) => LeaveRequest;
   actOnLeaveRequest: (requestId: string, action: 'approve_atasan' | 'verify_hr' | 'reject', notes?: string) => void;
   submitTravelRequest: (data: Partial<TravelRequest>) => TravelRequest;
@@ -1083,7 +1086,16 @@ export const OfficeProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return formattedNumber;
   };
 
-  const applyTteSignature = (letterId: string) => {
+  const applyTteSignature = async (letterId: string): Promise<void> => {
+    // Guard 1: fitur TTE harus aktif (toggle admin "Integrasi TTE")
+    if (!systemSettings.bsreTteProvider.enabled) return;
+    // Guard 2: enforce izin RBAC canSignTTE
+    const perms = rolePermissions.find((rp) => rp.role === currentUser.role);
+    if (!perms?.canSignTTE) return;
+
+    const source = outgoingLetters.find((l) => l.id === letterId);
+    if (!source || source.tteStatus === 'Sudah TTE') return;
+
     const now = new Date();
     const formattedTime = `${now.toISOString().split('T')[0]} ${String(now.getHours()).padStart(2, '0')}:${String(
       now.getMinutes()
@@ -1091,61 +1103,82 @@ export const OfficeProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const qrCode = `BIN-TTE-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(
       now.getDate()
     ).padStart(2, '0')}-${Math.floor(10000 + Math.random() * 90000)}`;
-    const hash = `sha256-${Math.random().toString(36).substring(2)}${Math.random().toString(36).substring(2)}`;
 
-    let targetLetter: OutgoingLetter | undefined;
+    // Hash SHA-256 asli (Web Crypto) dari isi surat + kode verifikasi
+    const encoder = new TextEncoder();
+    const digest = await crypto.subtle.digest('SHA-256', encoder.encode(`${source.content}|${qrCode}`));
+    const hash = `sha256-${Array.from(new Uint8Array(digest))
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('')}`;
 
-    setOutgoingLetters((prev) =>
-      prev.map((letter) => {
-        if (letter.id === letterId) {
-          targetLetter = {
-            ...letter,
-            status: 'TTE Diterbitkan',
-            tteStatus: 'Sudah TTE',
-            tteDate: formattedTime,
-            tteSigner: `${currentUser.name} (${currentUser.title})`,
-            qrVerifyCode: qrCode,
-            hash,
-          };
-          return targetLetter;
-        }
-        return letter;
-      })
-    );
+    // QR asli: payload = kode verifikasi (Fase 0; Fase 1 pakai URL verifikasi BSrE)
+    const qrDataUrl = await makeQrDataUrl(qrCode);
 
-    if (targetLetter) {
-      // Auto archive
-      const newArchive: DigitalArchive = {
-        id: `arc-${Date.now()}`,
-        documentNumber: targetLetter.letterNumber || targetLetter.draftNumber,
-        documentType: targetLetter.type,
-        title: targetLetter.subject,
-        category: 'Persuratan Resmi Terbit',
-        unit: targetLetter.unit,
-        ownerName: targetLetter.creatorName,
-        dateCreated: now.toISOString().split('T')[0],
-        retentionPeriodYears: 10,
-        retentionExpiryDate: `${now.getFullYear() + 10}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(
-          now.getDate()
-        ).padStart(2, '0')}`,
-        confidentiality: targetLetter.urgency === 'Rahasia' ? 'Rahasia' : 'Biasa',
-        status: 'Aktif',
-        fileSize: '2.1 MB',
-        fileName: `${(targetLetter.letterNumber || 'Dokumen').replace(/\//g, '_')}_Signed.pdf`,
-        version: '1.0',
-        downloadCount: 1,
-        approvedBy: currentUser.name,
-        hash,
-      };
-      setArchives((prev) => [newArchive, ...prev]);
-    }
+    const signedLetter: OutgoingLetter = {
+      ...source,
+      status: 'TTE Diterbitkan',
+      tteStatus: 'Sudah TTE',
+      tteDate: formattedTime,
+      tteSigner: `${currentUser.name} (${currentUser.title})`,
+      qrVerifyCode: qrCode,
+      hash,
+      qrDataUrl,
+      tteProvider: 'mock',
+    };
+
+    // Render PDF final (berisi blok TTE + QR) lalu serahkan ke provider
+    const pdfBytes = await generateLetterPdf(signedLetter);
+    const provider = getTteProvider();
+    const signed = await provider.sign({
+      pdfBytes,
+      fileName: letterPdfFileName(signedLetter),
+      signerName: currentUser.name,
+      signerNip: currentUser.nip,
+      verifyCode: qrCode,
+    });
+
+    const finalLetter: OutgoingLetter = {
+      ...signedLetter,
+      tteProvider: signed.provider,
+      signedPdfBase64: signed.signedPdfBase64,
+      verifyUrl: signed.verifyUrl,
+    };
+
+    setOutgoingLetters((prev) => prev.map((l) => (l.id === letterId ? finalLetter : l)));
+
+    // Auto archive
+    const newArchive: DigitalArchive = {
+      id: `arc-${Date.now()}`,
+      documentNumber: finalLetter.letterNumber || finalLetter.draftNumber,
+      documentType: finalLetter.type,
+      title: finalLetter.subject,
+      category: 'Persuratan Resmi Terbit',
+      unit: finalLetter.unit,
+      ownerName: finalLetter.creatorName,
+      dateCreated: now.toISOString().split('T')[0],
+      retentionPeriodYears: 10,
+      retentionExpiryDate: `${now.getFullYear() + 10}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(
+        now.getDate()
+      ).padStart(2, '0')}`,
+      confidentiality: finalLetter.urgency === 'Rahasia' ? 'Rahasia' : 'Biasa',
+      status: 'Aktif',
+      fileSize: `${Math.max(1, Math.round(pdfBytes.length / 1024))} KB`,
+      fileName: `${(finalLetter.letterNumber || 'Dokumen').replace(/\//g, '_')}_Signed.pdf`,
+      version: '1.0',
+      downloadCount: 1,
+      approvedBy: currentUser.name,
+      hash,
+    };
+    setArchives((prev) => [newArchive, ...prev]);
 
     addAuditLog(
       'SIGN_TTE',
       'Surat Keluar',
       letterId,
-      targetLetter?.letterNumber || letterId,
-      `Tanda Tangan Elektronik (TTE) tersertifikasi BSrE berhasil dibubuhkan oleh ${currentUser.name}. Kode Verifikasi: ${qrCode}`
+      finalLetter.letterNumber || letterId,
+      `Tanda Tangan Elektronik (TTE) berhasil dibubuhkan oleh ${currentUser.name} (provider: ${
+        signed.provider
+      }). Kode Verifikasi: ${qrCode}`
     );
   };
 
@@ -1645,7 +1678,7 @@ export const OfficeProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       (l) =>
         (l.qrVerifyCode && l.qrVerifyCode.toLowerCase() === trimmed) ||
         (l.letterNumber && l.letterNumber.toLowerCase() === trimmed) ||
-        (l.hash && l.hash.toLowerCase().includes(trimmed))
+        (l.hash && l.hash.toLowerCase() === trimmed)
     );
 
     if (foundOut) {
@@ -1667,7 +1700,7 @@ export const OfficeProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     // Check in Number records
     const foundNum = letterNumbers.find(
-      (n) => n.formattedNumber.toLowerCase() === trimmed || n.hash.toLowerCase().includes(trimmed)
+      (n) => n.formattedNumber.toLowerCase() === trimmed || n.hash.toLowerCase() === trimmed
     );
 
     if (foundNum) {

@@ -22,6 +22,8 @@ export const SuratKeluarView: React.FC = () => {
     outgoingLetters,
     currentUser,
     templates,
+    systemSettings,
+    rolePermissions,
     createOutgoingDraft,
     issueLetterNumber,
     applyTteSignature,
@@ -29,6 +31,19 @@ export const SuratKeluarView: React.FC = () => {
     setQrVerificationModalData,
     setActiveModule,
   } = useOffice();
+
+  const tteFeatureEnabled = systemSettings.bsreTteProvider.enabled;
+  const canSignTTE = rolePermissions.find((rp) => rp.role === currentUser.role)?.canSignTTE ?? false;
+  const [signingId, setSigningId] = useState<string | null>(null);
+
+  const handleSign = async (letterId: string) => {
+    setSigningId(letterId);
+    try {
+      await applyTteSignature(letterId);
+    } finally {
+      setSigningId(null);
+    }
+  };
 
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState<string>('all');
@@ -279,14 +294,21 @@ export const SuratKeluarView: React.FC = () => {
 
                           {/* Action button: TTE if Nomor Diterbitkan */}
                           {letter.status === 'Nomor Diterbitkan' &&
-                            (currentUser.role === 'Direksi' || currentUser.role === 'Atasan') && (
+                            canSignTTE &&
+                            (tteFeatureEnabled ? (
                               <button
-                                onClick={() => applyTteSignature(letter.id)}
-                                className="px-2 py-1 text-[11px] font-semibold text-white bg-emerald-700 hover:bg-emerald-800 rounded transition-colors flex items-center gap-1"
+                                onClick={() => handleSign(letter.id)}
+                                disabled={signingId === letter.id}
+                                className="px-2 py-1 text-[11px] font-semibold text-white bg-emerald-700 hover:bg-emerald-800 disabled:opacity-60 rounded transition-colors flex items-center gap-1"
                               >
-                                <ShieldCheck className="w-3 h-3" /> Bubuhkan TTE
+                                <ShieldCheck className="w-3 h-3" />
+                                {signingId === letter.id ? 'Menandatangani…' : 'Bubuhkan TTE'}
                               </button>
-                            )}
+                            ) : (
+                              <span className="px-2 py-1 text-[11px] italic text-slate-400 border border-dashed border-slate-300 rounded">
+                                Fitur TTE nonaktif
+                              </span>
+                            ))}
 
                           {letter.status === 'Menunggu Approval' && (
                             <button

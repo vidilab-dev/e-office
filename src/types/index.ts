@@ -142,6 +142,10 @@ export interface OutgoingLetter {
   tteSigner?: string;
   qrVerifyCode?: string;
   hash?: string;
+  tteProvider?: 'mock' | 'bsre';
+  signedPdfBase64?: string;
+  qrDataUrl?: string;
+  verifyUrl?: string;
   sendMethod?: 'Email' | 'Kurir Fisik' | 'Internal Workflow' | 'Eksternal Portal';
   sentAt?: string;
 }

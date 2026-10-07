@@ -28,6 +28,7 @@ import {
   X,
   AlertTriangle,
   Info,
+  ShieldCheck,
 } from 'lucide-react';
 import { useOffice } from '../../context/OfficeContext';
 import {
@@ -74,7 +75,7 @@ export const AdminManagementView: React.FC = () => {
   } = useOffice();
 
   const [activeTab, setActiveTab] = useState<
-    'users' | 'units' | 'workflows' | 'numbering' | 'templates' | 'rbac' | 'system' | 'backup'
+    'users' | 'units' | 'workflows' | 'numbering' | 'templates' | 'rbac' | 'system' | 'tte' | 'backup'
   >('users');
 
   // Search filter
@@ -122,6 +123,17 @@ export const AdminManagementView: React.FC = () => {
   // System Settings local form
   const [sysForm, setSysForm] = useState(systemSettings);
   const [saveSuccessMsg, setSaveSuccessMsg] = useState('');
+  const [tteSuccessMsg, setTteSuccessMsg] = useState('');
+
+  const toggleTteFeature = (enabled: boolean) => {
+    updateSystemSettings({ bsreTteProvider: { ...systemSettings.bsreTteProvider, enabled } });
+    setTteSuccessMsg(
+      enabled
+        ? 'Fitur TTE diaktifkan. Tombol "Bubuhkan TTE" kini tersedia bagi berhak (Direksi & Atasan).'
+        : 'Fitur TTE dinonaktifkan. Bubuhan TTE baru dicegah; dokumen yang sudah ditandatangani tetap tampil & terverifikasi.'
+    );
+    setTimeout(() => setTteSuccessMsg(''), 5000);
+  };
 
   // Workflow form
   const [wfForm, setWfForm] = useState<{
@@ -433,6 +445,18 @@ export const AdminManagementView: React.FC = () => {
         >
           <Sliders className="w-3.5 h-3.5" />
           <span>Pengaturan & Integrasi</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('tte')}
+          className={`flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg transition-colors shrink-0 ${
+            activeTab === 'tte'
+              ? 'bg-blue-900 text-white shadow-xs'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+          }`}
+        >
+          <ShieldCheck className="w-3.5 h-3.5" />
+          <span>Integrasi TTE</span>
         </button>
 
         <button
@@ -1211,6 +1235,129 @@ export const AdminManagementView: React.FC = () => {
             </button>
           </div>
         </form>
+      )}
+
+      {/* ============================================================== */}
+      {/* TAB: INTEGRASI TTE (AKTIF / NONAKTIFKAN FITUR)                 */}
+      {/* ============================================================== */}
+      {activeTab === 'tte' && (
+        <div className="space-y-5">
+          {tteSuccessMsg && (
+            <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-lg text-xs flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>{tteSuccessMsg}</span>
+            </div>
+          )}
+
+          {/* Card 1: Sakelar Fitur TTE */}
+          <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-6 space-y-4">
+            <div className="flex items-start justify-between gap-4">
+              <div className="space-y-1">
+                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-emerald-700" /> Fitur Tanda Tangan Elektronik (TTE)
+                </h3>
+                <p className="text-xs text-slate-600 max-w-2xl">
+                  Saat <strong>nonaktif</strong>, tombol "Bubuhkan TTE" tidak tersedia — untuk kondisi sistem
+                  yang belum terintegrasi penyelenggara TTE. Dokumen yang <strong>sudah</strong> ditandatangani
+                  tetap tampil, bisa diunduh, dan tetap dapat diverifikasi.
+                </p>
+              </div>
+              <label className="inline-flex items-center gap-3 shrink-0 cursor-pointer select-none">
+                <span className={`text-xs font-bold ${systemSettings.bsreTteProvider.enabled ? 'text-emerald-700' : 'text-slate-400'}`}>
+                  {systemSettings.bsreTteProvider.enabled ? 'AKTIF' : 'NONAKTIF'}
+                </span>
+                <span className="relative">
+                  <input
+                    type="checkbox"
+                    className="peer sr-only"
+                    checked={systemSettings.bsreTteProvider.enabled}
+                    onChange={(e) => toggleTteFeature(e.target.checked)}
+                  />
+                  <span
+                    className={`block w-11 h-6 rounded-full transition-colors ${
+                      systemSettings.bsreTteProvider.enabled ? 'bg-emerald-600' : 'bg-slate-300'
+                    } peer-focus-visible:ring-2 peer-focus-visible:ring-blue-900 peer-focus-visible:ring-offset-2`}
+                  />
+                  <span
+                    className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
+                      systemSettings.bsreTteProvider.enabled ? 'translate-x-5' : ''
+                    }`}
+                  />
+                </span>
+              </label>
+            </div>
+          </div>
+
+          {/* Card 2: Status Provider */}
+          <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-6 space-y-4">
+            <h3 className="text-sm font-bold text-slate-900 border-b border-slate-100 pb-2">
+              2. Provider TTE Aktif
+            </h3>
+            <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg space-y-3 text-xs">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Key className="w-4 h-4 text-emerald-700" />
+                  <span className="font-bold text-slate-900">Mode: Lokal (Mock)</span>
+                </div>
+                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                  BSrE BELUM TERINTEGRASI
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-600 leading-relaxed">
+                Penandatanganan berjalan lokal: PDF dihasilkan dengan QR verifikasi & hash SHA-256 asli dari sistem
+                e-Office PT BIN. Untuk mengaktifkan BSrE (BSSN) pada Fase berikutnya, siapkan kredensial di server:
+              </p>
+              <ul className="text-[11px] text-slate-600 font-mono space-y-1 list-disc list-inside">
+                <li>TTE_PROVIDER=bsre</li>
+                <li>BSRE_BASE_URL, BSRE_USERNAME, BSRE_PASSWORD (di .env server)</li>
+              </ul>
+            </div>
+          </div>
+
+          {/* Card 3: CA & Sertifikat */}
+          <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-6 space-y-4">
+            <h3 className="text-sm font-bold text-slate-900 border-b border-slate-100 pb-2">
+              3. Sertifikat Elektronik & CA
+            </h3>
+            <p className="text-xs text-slate-600">
+              {systemSettings.bsreTteProvider.caName} · Status Sertifikat:{' '}
+              <strong>{systemSettings.bsreTteProvider.status}</strong>
+            </p>
+          </div>
+
+          {/* Card 4: Checklist Kesiapan BSrE */}
+          <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-6 space-y-4">
+            <h3 className="text-sm font-bold text-slate-900 border-b border-slate-100 pb-2">
+              4. Checklist Kesiapan Integrasi BSrE
+            </h3>
+            <div className="space-y-2 text-xs">
+              {[
+                'Akun pengembang portal-bsre.bssn.go.id (API Manager)',
+                'Sertifikat elektronik penandatangan (Direksi) + passphrase',
+                'Kredensial eSign Client Service (username / password)',
+                'Akses API api-bsre.bssn.go.id dari server (HTTPS/TLS)',
+              ].map((item) => (
+                <div
+                  key={item}
+                  className="flex items-center gap-2 p-2.5 bg-slate-50 border border-slate-200 rounded-lg"
+                >
+                  <span className="w-4 h-4 rounded border border-slate-300 bg-white shrink-0" />
+                  <span className="text-slate-700">{item}</span>
+                  <span className="ml-auto text-[10px] font-bold text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 shrink-0">
+                    MENUNGGU
+                  </span>
+                </div>
+              ))}
+            </div>
+            <div className="flex items-start gap-2 p-3 bg-blue-50 border border-blue-200 rounded-lg text-[11px] text-blue-900">
+              <Info className="w-4 h-4 shrink-0 mt-0.5" />
+              <span>
+                Fase 0 (saat ini): fondasi lokal — provider abstraction, PDF nyata, QR asli, hash SHA-256.
+                Fase 1-2: adapter BSrE menyusul setelah akun & sertifikat tersedia.
+              </span>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* ============================================================== */}

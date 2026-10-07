@@ -4,6 +4,9 @@ import { X, Printer, Download, ShieldCheck, CheckCircle2, Lock } from 'lucide-re
 import { useOffice } from '../../context/OfficeContext';
 import { formatTanggalSurat } from '../../utils/formatDate';
 import { parseContent, ContentSegment } from '../../utils/contentBlocks';
+import { generateLetterPdf, letterPdfFileName, downloadPdf } from '../../services/pdf/letterPdf';
+import { base64ToBytes } from '../../utils/bytes';
+import { makeQrDataUrl } from '../../utils/qr';
 
 const MM = 96 / 25.4;
 const PAGE_W = Math.round(210 * MM);
@@ -53,6 +56,49 @@ export const DocumentPreviewModal: React.FC = () => {
       code: doc.qrVerifyCode || doc.letterNumber || doc.agendaNumber,
       title: doc.subject || doc.title,
     });
+  };
+
+  const [downloading, setDownloading] = React.useState(false);
+  // Surat lama sudah TTE tapi belum punya qrDataUrl → generate fallback agar bisa dipindai
+  const [fallbackQr, setFallbackQr] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    let alive = true;
+    if (doc?.tteStatus === 'Sudah TTE' && !doc.qrDataUrl && doc.qrVerifyCode) {
+      makeQrDataUrl(doc.qrVerifyCode)
+        .then((url) => {
+          if (alive) setFallbackQr(url);
+        })
+        .catch(() => undefined);
+    } else {
+      setFallbackQr(null);
+    }
+    return () => {
+      alive = false;
+    };
+  }, [doc?.tteStatus, doc?.qrDataUrl, doc?.qrVerifyCode]);
+
+  const qrSrc = doc?.qrDataUrl || fallbackQr;
+
+  const handleDownload = async () => {
+    if (!doc || downloading) return;
+    setDownloading(true);
+    try {
+      if (doc.signedPdfBase64) {
+        // Dokumen sudah ditandatangani — unduh PDF final hasil signing
+        const bytes = base64ToBytes(doc.signedPdfBase64);
+        downloadPdf(bytes, letterPdfFileName(doc));
+      } else {
+        // Belum TTE — render PDF dari data surat saat ini
+        const bytes = await generateLetterPdf(doc);
+        downloadPdf(bytes, letterPdfFileName(doc));
+      }
+    } catch (err) {
+      console.error('Gagal membuat PDF', err);
+      alert('Gagal membuat PDF. Silakan coba lagi.');
+    } finally {
+      setDownloading(false);
+    }
   };
 
   const isConfidential = doc
@@ -226,6 +272,11 @@ export const DocumentPreviewModal: React.FC = () => {
                     <p className="text-[10px] text-slate-500 font-mono">
                       Timestamp: {doc.tteDate || '2026-10-04 15:45 WIB'}
                     </p>
+                    <p className="text-[9px] text-slate-400 italic max-w-[340px] mt-2 leading-snug">
+                      {doc.tteProvider === 'bsre'
+                        ? 'Dokumen ini telah ditandatangani secara elektronik menggunakan sertifikat elektronik yang diterbitkan oleh Balai Sertifikasi Elektronik (BSrE), BSSN.'
+                        : 'Dokumen ini telah ditandatangani secara elektronik melalui sistem e-Office PT BIN (provider: Lokal) — menunggu integrasi BSrE, BSSN.'}
+                    </p>
                   </div>
                 ) : (
                   <div className="text-left">
@@ -241,34 +292,39 @@ export const DocumentPreviewModal: React.FC = () => {
                 )}
               </div>
 
-              {/* QR Verification Box */}
-              <div className="flex items-center gap-3 p-2 bg-slate-50 border border-slate-200 rounded text-left">
-                <div
-                  onClick={handleVerifyQR}
-                  className="w-16 h-16 bg-white border border-slate-300 p-1 flex flex-col items-center justify-center cursor-pointer hover:border-blue-500 transition-colors shadow-xs"
-                  title="Klik untuk memverifikasi QR Code"
-                >
-                  {/* Stylized QR Code matrix icon */}
-                  <div className="w-full h-full bg-slate-900 rounded-[2px] flex items-center justify-center p-1 text-[8px] font-mono text-white text-center leading-tight">
-                    QR TTE BSrE
-                  </div>
-                </div>
-                <div className="text-[11px] space-y-0.5">
-                  <div className="flex items-center gap-1 text-emerald-700 font-semibold">
-                    <ShieldCheck className="w-3.5 h-3.5" />
-                    <span>Terverifikasi Elektronik</span>
-                  </div>
-                  <p className="text-slate-500 font-mono text-[10px]">
-                    {doc.qrVerifyCode || 'BIN-TTE-OFFICIAL-2026'}
-                  </p>
-                  <button
+              {/* QR Verification Box — hanya tampil bila sudah TTE */}
+              {doc.tteStatus === 'Sudah TTE' && (
+                <div className="flex items-center gap-3 p-2 bg-slate-50 border border-slate-200 rounded text-left">
+                  <div
                     onClick={handleVerifyQR}
-                    className="text-blue-600 hover:text-blue-800 text-[10px] underline font-medium"
+                    className="w-16 h-16 bg-white border border-slate-300 p-1 flex items-center justify-center cursor-pointer hover:border-blue-500 transition-colors shadow-xs"
+                    title="Klik untuk memverifikasi QR Code"
                   >
-                    Cek Validitas TTE
-                  </button>
+                    {qrSrc ? (
+                      <img src={qrSrc} alt="QR TTE" className="w-full h-full object-contain" />
+                    ) : (
+                      <div className="w-full h-full bg-slate-900 rounded-[2px] flex items-center justify-center p-1 text-[8px] font-mono text-white text-center leading-tight animate-pulse">
+                        QR TTE
+                      </div>
+                    )}
+                  </div>
+                  <div className="text-[11px] space-y-0.5">
+                    <div className="flex items-center gap-1 text-emerald-700 font-semibold">
+                      <ShieldCheck className="w-3.5 h-3.5" />
+                      <span>Terverifikasi Elektronik</span>
+                    </div>
+                    <p className="text-slate-500 font-mono text-[10px]">
+                      {doc.qrVerifyCode || '-'}
+                    </p>
+                    <button
+                      onClick={handleVerifyQR}
+                      className="text-blue-600 hover:text-blue-800 text-[10px] underline font-medium"
+                    >
+                      Cek Validitas TTE
+                    </button>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           ),
         },
@@ -451,10 +507,11 @@ export const DocumentPreviewModal: React.FC = () => {
               <Printer className="w-3.5 h-3.5" /> Cetak
             </button>
             <button
-              onClick={() => alert(`Mengunduh file resmi ${doc.fileName || 'dokumen.pdf'}...`)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-700 bg-white border border-slate-300 rounded-md hover:bg-slate-50 transition-colors"
+              onClick={handleDownload}
+              disabled={downloading}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-700 bg-white border border-slate-300 rounded-md hover:bg-slate-50 disabled:opacity-60 transition-colors"
             >
-              <Download className="w-3.5 h-3.5" /> Unduh PDF
+              <Download className="w-3.5 h-3.5" /> {downloading ? 'Membuat PDF…' : 'Unduh PDF'}
             </button>
             <button
               onClick={() => setSelectedDocumentForPreview(null)}
