@@ -41,6 +41,7 @@ import {
   DocumentTemplate,
 } from '../../types';
 import { ContentEditor } from '../common/ContentEditor';
+import { toPlainText } from '../../utils/contentBlocks';
 
 export const AdminManagementView: React.FC = () => {
   const {
@@ -894,7 +895,7 @@ export const AdminManagementView: React.FC = () => {
                   </div>
 
                   <div className="p-2.5 bg-slate-50 rounded text-[11px] text-slate-600 line-clamp-2">
-                    {tpl.defaultContent}
+                    {toPlainText(tpl.defaultContent)}
                   </div>
                 </div>
 

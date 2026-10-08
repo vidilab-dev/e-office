@@ -10,6 +10,26 @@
   }
 }
 
+/* Placeholder untuk editor contentEditable */
+.ce-editor:empty::before {
+  content: attr(data-ph);
+  color: #94a3b8;
+  pointer-events: none;
+}
+
+/* Daftar di editor — berlaku untuk <ul>/<ol> hasil render React maupun execCommand */
+.ce-editor ul,
+.ce-editor ol {
+  padding-left: 1.25rem;
+  margin: 0.375rem 0;
+}
+.ce-editor ul {
+  list-style: disc;
+}
+.ce-editor ol {
+  list-style: decimal;
+}
+
 @media print {
   @page {
     size: A4;

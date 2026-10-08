@@ -9,6 +9,7 @@ import {
   FileText,
 } from 'lucide-react';
 import { useOffice } from '../../context/OfficeContext';
+import { toPlainText } from '../../utils/contentBlocks';
 
 export const TemplateDokumenView: React.FC = () => {
   const { templates, setActiveModule } = useOffice();
@@ -55,7 +56,7 @@ export const TemplateDokumenView: React.FC = () => {
               {/* Template Preview Snippet */}
               <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-xs space-y-1 font-mono text-[11px] text-slate-700">
                 <p className="font-semibold text-slate-900">Perihal: {tpl.defaultSubject}</p>
-                <p className="text-slate-500 line-clamp-3 whitespace-pre-line">{tpl.defaultContent}</p>
+                <p className="text-slate-500 line-clamp-3 whitespace-pre-line">{toPlainText(tpl.defaultContent)}</p>
               </div>
             </div>
 

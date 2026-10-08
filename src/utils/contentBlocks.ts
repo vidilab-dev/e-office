@@ -78,6 +78,133 @@ export const buildTableSegment = (cols: number, rows: number): ContentSegment =>
   return { type: 'table', rows: [header, ...body] };
 };
 
+export type InlineRun = { text: string; bold?: boolean; italic?: boolean; underline?: boolean };
+
+export type LineKind =
+  | { type: 'text'; rest: string }
+  | { type: 'bullet'; rest: string }
+  | { type: 'number'; rest: string; n: number };
+
+const NUMBER_LINE_RE = /^\s*(\d+)\.\s+(.*)$/;
+const BULLET_LINE_RE = /^\s*[-•]\s+(.*)$/;
+
+export const classifyLine = (line: string): LineKind => {
+  const b = line.match(BULLET_LINE_RE);
+  if (b) return { type: 'bullet', rest: b[1] };
+  const n = line.match(NUMBER_LINE_RE);
+  if (n) return { type: 'number', rest: n[2], n: parseInt(n[1], 10) };
+  return { type: 'text', rest: line };
+};
+
+/**
+ * Parser inline: **Tebal**, *Miring*, __Garis Bawah__.
+ * Pasangan marker yang tidak tertutup akan tampil literal (aman untuk konten lama).
+ */
+const parseRange = (src: string, end: number): InlineRun[] => {
+  const runs: InlineRun[] = [];
+  const closers = new Map<number, string>();
+  let bold = false;
+  let italic = false;
+  let underline = false;
+  let buf = '';
+
+  const flush = () => {
+    if (!buf) return;
+    const run: InlineRun = { text: buf };
+    if (bold) run.bold = true;
+    if (italic) run.italic = true;
+    if (underline) run.underline = true;
+    runs.push(run);
+    buf = '';
+  };
+
+  const toggle = (marker: string) => {
+    flush();
+    if (marker === '**') bold = !bold;
+    else if (marker === '__') underline = !underline;
+    else italic = !italic;
+  };
+
+  let i = 0;
+  while (i < end) {
+    const closeMarker = closers.get(i);
+    if (closeMarker !== undefined) {
+      toggle(closeMarker);
+      i += closeMarker.length;
+      continue;
+    }
+    if (src.startsWith('**', i)) {
+      const j = src.indexOf('**', i + 2);
+      if (j === -1 || j + 2 > end) {
+        buf += '**';
+        i += 2;
+        continue;
+      }
+      closers.set(j, '**');
+      toggle('**');
+      i += 2;
+      continue;
+    }
+    if (src.startsWith('__', i)) {
+      const j = src.indexOf('__', i + 2);
+      if (j === -1 || j + 2 > end) {
+        buf += '__';
+        i += 2;
+        continue;
+      }
+      closers.set(j, '__');
+      toggle('__');
+      i += 2;
+      continue;
+    }
+    if (src[i] === '*') {
+      let p = i + 1;
+      let close = -1;
+      while (p < end) {
+        if (src.startsWith('**', p)) {
+          p += 2;
+          continue;
+        }
+        if (src[p] === '*') {
+          close = p;
+          break;
+        }
+        p++;
+      }
+      if (close === -1) {
+        buf += '*';
+        i++;
+        continue;
+      }
+      closers.set(close, '*');
+      toggle('*');
+      i++;
+      continue;
+    }
+    buf += src[i];
+    i++;
+  }
+  flush();
+  return runs;
+};
+
+export const parseInline = (src: string): InlineRun[] => {
+  const s = src || '';
+  return parseRange(s, s.length);
+};
+
+export const stripInline = (src: string): string =>
+  parseInline(src)
+    .map((r) => r.text)
+    .join('');
+
+/** Teks polos (tanpa marker format & tanpa prefix daftar) — untuk pratinjau mini. */
+export const toPlainText = (text: string): string =>
+  (text || '')
+    .split('\n')
+    .map((line) => stripInline(classifyLine(line).rest))
+    .join('\n');
+
 export const serializeContent = (segs: ContentSegment[]): string =>
   segs
     .map((seg) => {

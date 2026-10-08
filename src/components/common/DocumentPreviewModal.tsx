@@ -3,10 +3,11 @@ import { createPortal } from 'react-dom';
 import { X, Printer, Download, ShieldCheck, CheckCircle2, Lock } from 'lucide-react';
 import { useOffice } from '../../context/OfficeContext';
 import { formatTanggalSurat } from '../../utils/formatDate';
-import { parseContent, ContentSegment } from '../../utils/contentBlocks';
+import { parseContent, stripInline, ContentSegment } from '../../utils/contentBlocks';
 import { generateLetterPdf, letterPdfFileName, downloadPdf } from '../../services/pdf/letterPdf';
 import { base64ToBytes } from '../../utils/bytes';
 import { makeQrDataUrl } from '../../utils/qr';
+import { renderRich } from './RichText';
 
 const MM = 96 / 25.4;
 const PAGE_W = Math.round(210 * MM);
@@ -121,7 +122,11 @@ export const DocumentPreviewModal: React.FC = () => {
     const key = `body-${idx}`;
 
     if (seg.type === 'paragraph') {
-      return { key, text: seg.text, node: <p className={BODY_CLASS} style={DOC_STYLE}>{seg.text}</p> };
+      return {
+        key,
+        text: seg.text,
+        node: <div className={BODY_CLASS} style={DOC_STYLE}>{renderRich(seg.text)}</div>,
+      };
     }
 
     if (seg.type === 'image') {
@@ -390,7 +395,7 @@ export const DocumentPreviewModal: React.FC = () => {
         let t = 0;
 
         while (t < tokens.length) {
-          kid.textContent = buf + tokens[t];
+          kid.textContent = stripInline(buf + tokens[t]);
           const h = kid.getBoundingClientRect().height + margins;
 
           if (h <= maxH - used[p]) {
@@ -455,9 +460,9 @@ export const DocumentPreviewModal: React.FC = () => {
           {watermark}
           {items.map((it, j) =>
             it.text !== undefined ? (
-              <p key={`${it.key}-${j}`} className={BODY_CLASS} style={DOC_STYLE}>
-                {it.text}
-              </p>
+              <div key={`${it.key}-${j}`} className={BODY_CLASS} style={DOC_STYLE}>
+                {renderRich(it.text)}
+              </div>
             ) : (
               <React.Fragment key={it.key}>{nodeByKey[it.key]}</React.Fragment>
             )

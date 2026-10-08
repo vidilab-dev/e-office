@@ -1,6 +1,6 @@
 import { PDFDocument, PDFPage, StandardFonts, rgb, PDFFont, RGB } from 'pdf-lib';
 import fontkit from '@pdf-lib/fontkit';
-import { parseContent, ContentSegment } from '../../utils/contentBlocks';
+import { parseContent, parseInline, classifyLine, ContentSegment, InlineRun } from '../../utils/contentBlocks';
 import { formatTanggalSurat } from '../../utils/formatDate';
 import { base64ToBytes } from '../../utils/bytes';
 import { makeQrDataUrl } from '../../utils/qr';
@@ -86,6 +86,8 @@ export const generateLetterPdf = async (doc: LetterPdfDoc): Promise<Uint8Array> 
   const tahoma = await loadTahoma(pdf);
   const docFont = tahoma?.reg ?? font;
   const docBold = tahoma?.bold ?? bold;
+  // Tahoma tidak punya varian italic — pakai Helvetica-Oblique (font standar PDF)
+  const docItalic = await pdf.embedFont(StandardFonts.HelveticaOblique);
 
   let page: PDFPage = pdf.addPage([A4_W, A4_H]);
   let y = A4_H - MARGIN; // jarak dari atas
@@ -239,12 +241,124 @@ export const generateLetterPdf = async (doc: LetterPdfDoc): Promise<Uint8Array> 
   };
 
   // ---------- BODY ----------
+  type PdfRun = InlineRun;
+
+  const runFont = (r: PdfRun): PDFFont => (r.bold ? docBold : r.italic ? docItalic : docFont);
+
+  const toPdfRuns = (text: string): PdfRun[] =>
+    parseInline(text).map((r) => ({ ...r, text: enc(r.text) }));
+
+  /** Gulung kumpulan run (dengan font masing-masing) ke baris-baris selebar `width`. */
+  const wrapRuns = (runs: PdfRun[], width: number): PdfRun[][] => {
+    const lines: PdfRun[][] = [];
+    let line: PdfRun[] = [];
+    let lineW = 0;
+
+    const pushText = (r: PdfRun, t: string) => {
+      if (!t) return;
+      const last = line[line.length - 1];
+      if (
+        last &&
+        !!last.bold === !!r.bold &&
+        !!last.italic === !!r.italic &&
+        !!last.underline === !!r.underline
+      ) {
+        last.text += t;
+      } else {
+        line.push({ ...r, text: t });
+      }
+    };
+
+    const flush = () => {
+      if (line.length) {
+        const last = line[line.length - 1];
+        last.text = last.text.replace(/\s+$/, '');
+        if (!last.text) line.pop();
+      }
+      lines.push(line);
+      line = [];
+      lineW = 0;
+    };
+
+    for (const run of runs) {
+      const f = runFont(run);
+      const parts = run.text.split('\n');
+      parts.forEach((part, pi) => {
+        if (pi > 0) flush();
+        for (const token of part.split(/(\s+)/)) {
+          if (!token) continue;
+          if (/^\s+$/.test(token)) {
+            if (line.length && lineW + f.widthOfTextAtSize(token, DOC_SIZE) <= width) {
+              pushText(run, token);
+              lineW += f.widthOfTextAtSize(token, DOC_SIZE);
+            }
+            continue;
+          }
+          let word = token;
+          let w = f.widthOfTextAtSize(word, DOC_SIZE);
+          if (lineW + w > width && line.length) flush();
+          while (w > width && word.length > 1) {
+            let cut = word.length - 1;
+            while (cut > 1 && f.widthOfTextAtSize(word.slice(0, cut), DOC_SIZE) > width) cut--;
+            pushText(run, word.slice(0, cut));
+            flush();
+            word = word.slice(cut);
+            w = f.widthOfTextAtSize(word, DOC_SIZE);
+          }
+          pushText(run, word);
+          lineW += f.widthOfTextAtSize(word, DOC_SIZE);
+        }
+      });
+    }
+    if (line.length) lines.push(line);
+    return lines;
+  };
+
+  const drawRunLine = (line: PdfRun[], x0: number) => {
+    let x = x0;
+    for (const r of line) {
+      if (!r.text) continue;
+      const f = runFont(r);
+      page.drawText(r.text, { x, y: y - DOC_SIZE, size: DOC_SIZE, font: f, color: ink });
+      const w = f.widthOfTextAtSize(r.text, DOC_SIZE);
+      if (r.underline) {
+        page.drawLine({
+          start: { x, y: y - DOC_SIZE - 1.5 },
+          end: { x: x + w, y: y - DOC_SIZE - 1.5 },
+          thickness: 0.6,
+          color: ink,
+        });
+      }
+      x += w;
+    }
+  };
+
+  const LIST_INDENT = 16;
+
   const drawParagraph = (text: string) => {
-    const lines = wrap(text, docFont, DOC_SIZE, CONTENT_W);
-    for (const l of lines) {
-      ensure(DOC_LEAD);
-      page.drawText(l, { x: MARGIN, y: y - DOC_SIZE, size: DOC_SIZE, font: docFont, color: ink });
-      y -= DOC_LEAD;
+    for (const line of text.split('\n')) {
+      const kind = classifyLine(line);
+      if (kind.type === 'bullet' || kind.type === 'number') {
+        const marker = kind.type === 'bullet' ? '•' : `${kind.n}.`;
+        const wrapped = wrapRuns(toPdfRuns(kind.rest), CONTENT_W - LIST_INDENT);
+        if (wrapped.length === 0) wrapped.push([]);
+        wrapped.forEach((ln, i) => {
+          ensure(DOC_LEAD);
+          if (i === 0) {
+            page.drawText(marker, { x: MARGIN, y: y - DOC_SIZE, size: DOC_SIZE, font: docFont, color: ink });
+          }
+          drawRunLine(ln, MARGIN + LIST_INDENT);
+          y -= DOC_LEAD;
+        });
+      } else {
+        const wrapped = wrapRuns(toPdfRuns(line), CONTENT_W);
+        if (wrapped.length === 0) wrapped.push([]);
+        wrapped.forEach((ln) => {
+          ensure(DOC_LEAD);
+          drawRunLine(ln, MARGIN);
+          y -= DOC_LEAD;
+        });
+      }
     }
     y -= 8;
   };
