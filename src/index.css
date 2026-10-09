@@ -17,6 +17,12 @@
   pointer-events: none;
 }
 
+/* Lebar 1 tab = 13 spasi (setara tab stop default Word 1,25cm) — menjajarkan tanda ":" */
+.ce-editor {
+  tab-size: 13;
+  -moz-tab-size: 13;
+}
+
 /* Daftar di editor — berlaku untuk <ul>/<ol> hasil render React maupun execCommand */
 .ce-editor ul,
 .ce-editor ol {

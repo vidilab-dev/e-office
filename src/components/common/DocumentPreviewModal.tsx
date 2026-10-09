@@ -19,9 +19,9 @@ const FIT_BUFFER = 6;
 
 // Font dokumen resmi: Tahoma 11px hitam — berlaku dari blok tanggal sampai tembusan
 const DOC_FONT = 'Tahoma, Verdana, Geneva, sans-serif';
-const DOC_STYLE: React.CSSProperties = { fontFamily: DOC_FONT, color: '#000000' };
+const DOC_STYLE: React.CSSProperties = { fontFamily: DOC_FONT, color: '#000000', tabSize: 13 };
 
-const BODY_CLASS = 'my-8 text-[11px] leading-relaxed text-black whitespace-pre-line text-justify font-normal';
+const BODY_CLASS = 'my-8 text-[11px] leading-relaxed text-black whitespace-pre-wrap text-justify font-normal';
 
 type Block = { key: string; node: React.ReactNode; text?: string };
 type PageItem = { key: string; text?: string };

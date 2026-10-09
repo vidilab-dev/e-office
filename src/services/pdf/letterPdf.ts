@@ -57,7 +57,43 @@ const enc = (s: string) =>
     .replace(/[\u2018\u2019]/g, "'")
     .replace(/[\u201C\u201D]/g, '"')
     .replace(/\u2026/g, '...')
+    .replace(/\t/g, ' ')
     .replace(/[^\u0020-\u00FF\n]/g, '?');
+
+/** Jarak 1 tab = 13 spasi (setara tab stop default Word 1,25cm), sama dengan `tab-size` di preview. */
+const TAB_STOP_CHARS = 13;
+
+/**
+ * Ubah karakter \t menjadi spasi sampai tab stop berikutnya (kelipatan lebar 4 spasi).
+ * Semua baris body berawal dari x yang sama sehingga kolom tanda ":" sejajar antarbaris.
+ */
+const expandTabs = (text: string, f: PDFFont, size: number): string => {
+  if (!text.includes('\t')) return text;
+  const spaceW = f.widthOfTextAtSize(' ', size);
+  const tabStop = spaceW * TAB_STOP_CHARS;
+  if (tabStop <= 0) return text.replace(/\t/g, ' ');
+  return text
+    .split('\n')
+    .map((line) => {
+      if (!line.includes('\t')) return line;
+      let out = '';
+      let w = 0;
+      for (const ch of line) {
+        if (ch !== '\t') {
+          out += ch;
+          w += f.widthOfTextAtSize(ch, size);
+          continue;
+        }
+        const target = (Math.floor(w / tabStop) + 1) * tabStop;
+        while (w < target) {
+          out += ' ';
+          w += spaceW;
+        }
+      }
+      return out;
+    })
+    .join('\n');
+};
 
 /** Muat Tahoma dari /public/fonts; gagal → fallback Helvetica. */
 const loadTahoma = async (pdf: PDFDocument): Promise<{ reg: PDFFont; bold: PDFFont } | null> => {
@@ -335,12 +371,41 @@ export const generateLetterPdf = async (doc: LetterPdfDoc): Promise<Uint8Array> 
 
   const LIST_INDENT = 16;
 
+  const runsWidth = (runs: PdfRun[]): number =>
+    runs.reduce((w, r) => w + runFont(r).widthOfTextAtSize(r.text, DOC_SIZE), 0);
+
+  /**
+   * Baris berisi \t: label digambar rata kiri, segmen setelah tab digambar pada x kolom
+   * tab stop absolut (kelipatan lebar 13 spasi) sehingga tanda ":" sejajar presisi
+   * antarbaris — sama persis dengan tab stop di editor & preview.
+   */
+  const drawTabbedLine = (rawLine: string) => {
+    const tabStop = docFont.widthOfTextAtSize(' '.repeat(TAB_STOP_CHARS), DOC_SIZE);
+    const segRuns = rawLine.split('\t').map((s) => toPdfRuns(s));
+    const xs: number[] = [0];
+    let rel = 0;
+    for (let i = 0; i < segRuns.length - 1; i++) {
+      rel += runsWidth(segRuns[i]);
+      rel = tabStop > 0 ? (Math.floor(rel / tabStop) + 1) * tabStop : rel;
+      xs.push(rel);
+    }
+    for (let i = 0; i < segRuns.length; i++) {
+      const wrapped = wrapRuns(segRuns[i], Math.max(24, CONTENT_W - xs[i]));
+      if (wrapped.length === 0) wrapped.push([]);
+      wrapped.forEach((ln, li) => {
+        ensure(DOC_LEAD);
+        drawRunLine(ln, MARGIN + (li === 0 ? xs[i] : 0));
+        y -= DOC_LEAD;
+      });
+    }
+  };
+
   const drawParagraph = (text: string) => {
-    for (const line of text.split('\n')) {
-      const kind = classifyLine(line);
+    for (const rawLine of text.split('\n')) {
+      const kind = classifyLine(rawLine);
       if (kind.type === 'bullet' || kind.type === 'number') {
         const marker = kind.type === 'bullet' ? '•' : `${kind.n}.`;
-        const wrapped = wrapRuns(toPdfRuns(kind.rest), CONTENT_W - LIST_INDENT);
+        const wrapped = wrapRuns(toPdfRuns(expandTabs(kind.rest, docFont, DOC_SIZE)), CONTENT_W - LIST_INDENT);
         if (wrapped.length === 0) wrapped.push([]);
         wrapped.forEach((ln, i) => {
           ensure(DOC_LEAD);
@@ -350,8 +415,10 @@ export const generateLetterPdf = async (doc: LetterPdfDoc): Promise<Uint8Array> 
           drawRunLine(ln, MARGIN + LIST_INDENT);
           y -= DOC_LEAD;
         });
+      } else if (rawLine.includes('\t')) {
+        drawTabbedLine(rawLine);
       } else {
-        const wrapped = wrapRuns(toPdfRuns(line), CONTENT_W);
+        const wrapped = wrapRuns(toPdfRuns(rawLine), CONTENT_W);
         if (wrapped.length === 0) wrapped.push([]);
         wrapped.forEach((ln) => {
           ensure(DOC_LEAD);

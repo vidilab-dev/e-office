@@ -278,6 +278,89 @@ export const ContentEditor: React.FC<ContentEditorProps> = ({
     syncFmt();
   };
 
+  /** Sisipkan teks literal di posisi kursor — deterministik untuk karakter \t. */
+  const insertAtCaret = (el: HTMLElement, text: string): boolean => {
+    const sel = document.getSelection();
+    if (!sel || sel.rangeCount === 0) return false;
+    const range = sel.getRangeAt(0);
+    if (!el.contains(range.commonAncestorContainer)) return false;
+    range.deleteContents();
+    const node = document.createTextNode(text);
+    range.insertNode(node);
+    const after = document.createRange();
+    after.setStartAfter(node);
+    after.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(after);
+    return true;
+  };
+
+  const textNodesIn = (root: HTMLElement): Text[] => {
+    const out: Text[] = [];
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    let n: Node | null;
+    while ((n = walker.nextNode())) out.push(n as Text);
+    return out;
+  };
+
+  /** Range dari offset global `start` sampai `end` (dihitung lintas text node). */
+  const rangeAt = (root: HTMLElement, start: number, end: number): Range | null => {
+    let acc = 0;
+    let startNode: Text | null = null;
+    let startOff = 0;
+    let endNode: Text | null = null;
+    let endOff = 0;
+    for (const node of textNodesIn(root)) {
+      const len = (node.textContent || '').length;
+      if (startNode === null && start <= acc + len) {
+        startNode = node;
+        startOff = start - acc;
+      }
+      if (end <= acc + len) {
+        endNode = node;
+        endOff = end - acc;
+        break;
+      }
+      acc += len;
+    }
+    if (!startNode || !endNode) return null;
+    const r = document.createRange();
+    r.setStart(startNode, startOff);
+    r.setEnd(endNode, endOff);
+    return r;
+  };
+
+  /** Hapus satu karakter \t tepat sebelum kursor (Shift+Tab), lintas text node. */
+  const removeTabBeforeCaret = (el: HTMLElement): boolean => {
+    const sel = document.getSelection();
+    if (!sel || sel.rangeCount === 0 || !sel.isCollapsed) return false;
+    const anchor = sel.anchorNode;
+    if (!anchor || !el.contains(anchor)) return false;
+    const caret = sel.getRangeAt(0);
+    const before = document.createRange();
+    before.setStart(el, 0);
+    before.setEnd(caret.startContainer, caret.startOffset);
+    const textBefore = before.toString();
+    if (!textBefore.endsWith('\t')) return false;
+    const at = textBefore.length - 1;
+    const target = rangeAt(el, at, at + 1);
+    if (!target) return false;
+    target.deleteContents();
+    const after = rangeAt(el, at, at);
+    if (!after) return false;
+    sel.removeAllRanges();
+    sel.addRange(after);
+    return true;
+  };
+
+  /** Tab = sisipkan jarak tab (sejajarkan tanda ":"); Shift+Tab = hapus tab sebelum kursor. */
+  const handleKeyDown = (idx: number, el: HTMLDivElement, e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key !== 'Tab' || e.ctrlKey || e.altKey || e.metaKey) return;
+    e.preventDefault();
+    const changed = e.shiftKey ? removeTabBeforeCaret(el) : insertAtCaret(el, '\t');
+    if (changed) handleCEInput(idx, el);
+  };
+
   /** Terapkan format via execCommand pada selection yang sedang aktif. */
   const execFmt = (
     cmd: 'bold' | 'italic' | 'underline' | 'insertUnorderedList' | 'insertOrderedList'
@@ -553,6 +636,7 @@ export const ContentEditor: React.FC<ContentEditorProps> = ({
                 suppressContentEditableWarning
                 data-ph={idx === 0 ? placeholder || '' : 'Lanjutkan paragraf...'}
                 onInput={(e) => handleCEInput(idx, e.currentTarget)}
+                onKeyDown={(e) => handleKeyDown(idx, e.currentTarget, e)}
                 onFocus={(e) => {
                   activeEdRef.current = e.currentTarget;
                   trackFocus(idx);
