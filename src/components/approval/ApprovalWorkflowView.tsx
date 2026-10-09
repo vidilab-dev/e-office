@@ -14,6 +14,8 @@ import {
 } from 'lucide-react';
 import { useOffice } from '../../context/OfficeContext';
 import { OutgoingLetter } from '../../types';
+import { ContentEditor } from '../common/ContentEditor';
+import { renderRich } from '../common/RichText';
 
 export const ApprovalWorkflowView: React.FC = () => {
   const {
@@ -220,8 +222,9 @@ export const ApprovalWorkflowView: React.FC = () => {
                               )}
 
                               {step.comments && (
-                                <div className="mt-2 p-2 bg-white/90 border border-slate-200 rounded text-slate-700 text-[11px]">
-                                  <strong className="text-slate-900">Catatan:</strong> {step.comments}
+                                <div className="mt-2 p-2 bg-white/90 border border-slate-200 rounded text-slate-700 text-[11px] leading-relaxed">
+                                  <strong className="text-slate-900 block">Catatan:</strong>
+                                  {renderRich(step.comments)}
                                 </div>
                               )}
                             </div>
@@ -329,10 +332,10 @@ export const ApprovalWorkflowView: React.FC = () => {
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
                   Catatan / Ulasan Reviewer
                 </label>
-                <textarea
-                  rows={3}
+                <ContentEditor
+                  rows={4}
                   value={actionComments}
-                  onChange={(e) => setActionComments(e.target.value)}
+                  onChange={setActionComments}
                   placeholder={
                     approvalActionModal.action === 'Revision'
                       ? 'Tuliskan poin-poin klausul yang perlu direvisi...'
@@ -340,8 +343,7 @@ export const ApprovalWorkflowView: React.FC = () => {
                       ? 'Tuliskan alasan penolakan dokumen...'
                       : 'Catatan persetujuan (opsional)...'
                   }
-                  className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900"
-                ></textarea>
+                />
               </div>
 
               {/* Delegation option */}

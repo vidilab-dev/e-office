@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Search, X, FileText, Send, User, Plane, Calendar, CheckSquare, Archive, ArrowRight } from 'lucide-react';
 import { useOffice } from '../../context/OfficeContext';
+import { renderRich } from './RichText';
 
 interface GlobalSearchModalProps {
   isOpen: boolean;
@@ -243,7 +244,9 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({ isOpen, on
                               </span>
                               <span className="text-[11px] text-slate-500">· {item.employeeName}</span>
                             </div>
-                            <p className="text-xs text-slate-700">Tujuan: {item.destinationCity} ({item.purpose})</p>
+                            <p className="text-xs text-slate-700">
+                              Tujuan: {item.destinationCity} ({renderRich(item.purpose)})
+                            </p>
                           </div>
                         </div>
                         <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-slate-600 transition-colors" />

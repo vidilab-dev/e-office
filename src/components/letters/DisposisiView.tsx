@@ -15,6 +15,8 @@ import {
 } from 'lucide-react';
 import { useOffice } from '../../context/OfficeContext';
 import { DispositionChainStep } from '../../types';
+import { ContentEditor } from '../common/ContentEditor';
+import { renderRich } from '../common/RichText';
 
 export const DisposisiView: React.FC = () => {
   const {
@@ -136,7 +138,7 @@ export const DisposisiView: React.FC = () => {
           {step.notes && (
             <div className="p-2.5 bg-amber-50/60 border border-amber-200/60 rounded-md text-amber-950 text-xs">
               <span className="font-semibold block text-[10px] text-amber-800">Catatan Pimpinan:</span>
-              <p className="mt-0.5 leading-relaxed">{step.notes}</p>
+              <div className="mt-0.5 leading-relaxed">{renderRich(step.notes)}</div>
             </div>
           )}
         </div>
@@ -167,7 +169,7 @@ export const DisposisiView: React.FC = () => {
               <span>Laporan Hasil Tindak Lanjut: Selesai</span>
               <span className="text-[10px] text-emerald-700 font-mono">({step.followUpReport.reportedAt})</span>
             </div>
-            <p className="text-emerald-900 text-xs">{step.followUpReport.notes}</p>
+            <div className="text-emerald-900 text-xs leading-relaxed">{renderRich(step.followUpReport.notes)}</div>
             <p className="text-[11px] text-emerald-700">Dilaporkan oleh: {step.followUpReport.completedBy}</p>
           </div>
         )}
@@ -283,14 +285,13 @@ export const DisposisiView: React.FC = () => {
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">Catatan Tambahan untuk PIC</label>
-                <textarea
-                  rows={3}
+                <ContentEditor
+                  rows={4}
                   required
                   value={cascadeNotes}
-                  onChange={(e) => setCascadeNotes(e.target.value)}
+                  onChange={setCascadeNotes}
                   placeholder="Detail penugasan spesifik kepada staf..."
-                  className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900"
-                ></textarea>
+                />
               </div>
 
               <div>
@@ -341,21 +342,20 @@ export const DisposisiView: React.FC = () => {
             <form onSubmit={handleFollowUpSubmit} className="p-6 space-y-4">
               <div className="p-3 bg-slate-50 rounded-lg text-xs space-y-1">
                 <p className="font-semibold text-slate-900">Instruksi: {followUpModalStep.instruction}</p>
-                <p className="text-slate-600">{followUpModalStep.notes}</p>
+                <div className="text-slate-600 leading-relaxed">{renderRich(followUpModalStep.notes)}</div>
               </div>
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
                   Uraian Hasil Tindak Lanjut
                 </label>
-                <textarea
+                <ContentEditor
                   rows={4}
                   required
                   value={followUpNotes}
-                  onChange={(e) => setFollowUpNotes(e.target.value)}
+                  onChange={setFollowUpNotes}
                   placeholder="Jelaskan secara ringkas hasil pelaksanaan instruksi disposisi..."
-                  className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900"
-                ></textarea>
+                />
               </div>
 
               <div className="p-3 bg-slate-50 border border-dashed border-slate-300 rounded-lg text-center space-y-1">

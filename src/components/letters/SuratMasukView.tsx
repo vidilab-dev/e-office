@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { useOffice } from '../../context/OfficeContext';
 import { InboundLetter, LetterUrgency } from '../../types';
+import { ContentEditor } from '../common/ContentEditor';
 
 export const SuratMasukView: React.FC = () => {
   const {
@@ -629,13 +630,12 @@ export const SuratMasukView: React.FC = () => {
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">Catatan Khusus Pimpinan</label>
-                <textarea
-                  rows={3}
+                <ContentEditor
+                  rows={4}
                   value={dispNotes}
-                  onChange={(e) => setDispNotes(e.target.value)}
+                  onChange={setDispNotes}
                   placeholder="Instruksi tambahan, arahan khusus, atau materi yang perlu disiapkan..."
-                  className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900"
-                ></textarea>
+                />
               </div>
 
               <div>

@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { useOffice } from '../../context/OfficeContext';
 import { Meeting } from '../../types';
+import { ContentEditor } from '../common/ContentEditor';
 
 export const AgendaRapatView: React.FC = () => {
   const { meetings, currentUser, users, createMeeting, updateMeetingMinutes, setActiveModule } = useOffice();
@@ -437,14 +438,13 @@ export const AgendaRapatView: React.FC = () => {
             <form onSubmit={handleSaveMinutesSubmit} className="p-6 space-y-4 text-xs">
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">Ringkasan Notulen / Risalah Rapat</label>
-                <textarea
-                  rows={3}
+                <ContentEditor
+                  rows={4}
                   required
                   value={minutesNotes}
-                  onChange={(e) => setMinutesNotes(e.target.value)}
+                  onChange={setMinutesNotes}
                   placeholder="Uraian jalannya pembahasan rapat..."
-                  className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900"
-                ></textarea>
+                />
               </div>
 
               <div>

@@ -17,6 +17,8 @@ import {
 import { useOffice } from '../../context/OfficeContext';
 import { TravelRequest, TravelExpenseItem } from '../../types';
 import { formatTanggalSurat } from '../../utils/formatDate';
+import { ContentEditor } from '../common/ContentEditor';
+import { renderRich } from '../common/RichText';
 
 export const PerjalananDinasView: React.FC = () => {
   const {
@@ -213,7 +215,7 @@ export const PerjalananDinasView: React.FC = () => {
                     {/* Destination & Purpose */}
                     <td className="px-4 py-3 max-w-[240px]">
                       <span className="font-bold text-slate-900 block">{item.destinationCity}</span>
-                      <p className="text-[11px] text-slate-600 line-clamp-2">{item.purpose}</p>
+                      <div className="text-[11px] text-slate-600 line-clamp-2">{renderRich(item.purpose)}</div>
                     </td>
 
                     {/* Schedule */}
@@ -366,14 +368,13 @@ export const PerjalananDinasView: React.FC = () => {
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">Maksud / Keperluan Dinas</label>
-                <textarea
-                  rows={3}
+                <ContentEditor
+                  rows={4}
                   required
                   value={purpose}
-                  onChange={(e) => setPurpose(e.target.value)}
+                  onChange={setPurpose}
                   placeholder="Uraikan agenda dinas dan target pencapaian..."
-                  className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900"
-                ></textarea>
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -515,7 +516,7 @@ export const PerjalananDinasView: React.FC = () => {
                     </tr>
                     <tr>
                       <td className="border border-slate-300 p-2 font-semibold bg-slate-50">4. Maksud Perjalanan Dinas</td>
-                      <td className="border border-slate-300 p-2">{selectedForSpdPreview.purpose}</td>
+                      <td className="border border-slate-300 p-2">{renderRich(selectedForSpdPreview.purpose)}</td>
                     </tr>
                     <tr>
                       <td className="border border-slate-300 p-2 font-semibold bg-slate-50">5. Moda Transportasi</td>
@@ -648,14 +649,13 @@ export const PerjalananDinasView: React.FC = () => {
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">Catatan Pertanggungjawaban</label>
-                <textarea
-                  rows={2}
+                <ContentEditor
+                  rows={3}
                   required
                   value={lpjNotes}
-                  onChange={(e) => setLpjNotes(e.target.value)}
+                  onChange={setLpjNotes}
                   placeholder="Keterangan realisasi anggaran dan hasil kegiatan..."
-                  className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg"
-                ></textarea>
+                />
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200">

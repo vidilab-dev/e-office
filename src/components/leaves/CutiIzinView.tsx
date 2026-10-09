@@ -13,6 +13,8 @@ import {
 } from 'lucide-react';
 import { useOffice } from '../../context/OfficeContext';
 import { LeaveType } from '../../types';
+import { ContentEditor } from '../common/ContentEditor';
+import { renderRich } from '../common/RichText';
 
 export const CutiIzinView: React.FC = () => {
   const {
@@ -209,7 +211,7 @@ export const CutiIzinView: React.FC = () => {
 
                     <td className="px-4 py-3 max-w-[240px]">
                       <span className="font-semibold text-slate-800 block">{req.type}</span>
-                      <p className="text-[11px] text-slate-600 line-clamp-1">{req.reason}</p>
+                      <div className="text-[11px] text-slate-600 line-clamp-1">{renderRich(req.reason)}</div>
                     </td>
 
                     <td className="px-4 py-3 whitespace-nowrap font-mono text-slate-700">
@@ -382,14 +384,13 @@ export const CutiIzinView: React.FC = () => {
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">Alasan Pengajuan</label>
-                <textarea
-                  rows={3}
+                <ContentEditor
+                  rows={4}
                   required
                   value={reason}
-                  onChange={(e) => setReason(e.target.value)}
+                  onChange={setReason}
                   placeholder="Keterangan keperluan cuti..."
-                  className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900"
-                ></textarea>
+                />
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200">
