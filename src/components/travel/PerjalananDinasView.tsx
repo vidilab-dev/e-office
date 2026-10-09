@@ -54,10 +54,45 @@ export const PerjalananDinasView: React.FC = () => {
   const [realizedCost, setRealizedCost] = useState(5200000);
   const [lpjNotes, setLpjNotes] = useState('');
   const [expenseItems, setExpenseItems] = useState<TravelExpenseItem[]>([
-    { id: '1', category: 'Transport', description: 'Tiket Pesawat PP Garuda Indonesia', amount: 2800000, receiptName: 'E-Ticket_Garuda.pdf' },
-    { id: '2', category: 'Penginapan', description: 'Hotel 2 Malam', amount: 1500000, receiptName: 'Hotel_Invoice.pdf' },
-    { id: '3', category: 'Uang Harian', description: 'Uang Harian Dinas 3 Hari', amount: 900000 },
+    { id: '1', category: 'Transport', description: 'Transportasi Utama', amount: 2500000, receiptName: 'E-Ticket_Garuda.pdf' },
+    { id: '2', category: 'Penginapan', description: 'Hotel', amount: 1500000, receiptName: 'Hotel_Invoice.pdf' },
+    { id: '3', category: 'Uang Harian', description: 'Makan', amount: 900000 },
+    { id: '4', category: 'Transport', description: 'Transportasi Lokal', amount: 300000 },
+    { id: '5', category: 'Transport', description: 'Bensin', amount: 0 },
   ]);
+
+  // Komponen biaya estimasi (form pengajuan)
+  const [costComponents, setCostComponents] = useState<{ id: string; name: string; amount: number }[]>([
+    { id: 'cc-1', name: 'Transportasi Utama', amount: 2500000 },
+    { id: 'cc-2', name: 'Hotel', amount: 1800000 },
+    { id: 'cc-3', name: 'Makan', amount: 750000 },
+    { id: 'cc-4', name: 'Transportasi Lokal', amount: 350000 },
+    { id: 'cc-5', name: 'Bensin', amount: 100000 },
+  ]);
+
+  const costComponentTotal = costComponents.reduce((sum, c) => sum + (Number(c.amount) || 0), 0);
+  const expenseTotal = expenseItems.reduce((sum, i) => sum + (Number(i.amount) || 0), 0);
+
+  const updateCostComponent = (id: string, patch: Partial<{ name: string; amount: number }>) =>
+    setCostComponents((prev) => prev.map((c) => (c.id === id ? { ...c, ...patch } : c)));
+
+  const addCostComponent = () =>
+    setCostComponents((prev) => [...prev, { id: `cc-${Date.now()}`, name: '', amount: 0 }]);
+
+  const removeCostComponent = (id: string) =>
+    setCostComponents((prev) => prev.filter((c) => c.id !== id));
+
+  const updateExpenseItem = (id: string, patch: Partial<TravelExpenseItem>) =>
+    setExpenseItems((prev) => prev.map((i) => (i.id === id ? { ...i, ...patch } : i)));
+
+  const addExpenseItem = () =>
+    setExpenseItems((prev) => [
+      ...prev,
+      { id: `exp-${Date.now()}`, category: 'Lainnya', description: '', amount: 0 },
+    ]);
+
+  const removeExpenseItem = (id: string) =>
+    setExpenseItems((prev) => prev.filter((i) => i.id !== id));
 
   const handleCreateSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -72,24 +107,31 @@ export const PerjalananDinasView: React.FC = () => {
       estimatedCost: Number(estimatedCost),
       costCenter,
       wbsProjectCode,
+      costComponents: costComponents
+        .filter((c) => c.name.trim())
+        .map((c) => ({ name: c.name.trim(), amount: Number(c.amount) || 0 })),
     });
 
     setIsNewModalOpen(false);
     setDestinationCity('');
     setPurpose('');
+    setCostComponents((prev) => prev.map((c) => ({ ...c, amount: 0 })));
   };
 
   const handleLpjSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedForLpjModal) return;
 
-    const diff = (selectedForLpjModal.estimatedCost || 0) - realizedCost;
+    const realized = Number(realizedCost) || 0;
+    const diff = (selectedForLpjModal.estimatedCost || 0) - realized;
 
     submitLPJ(selectedForLpjModal.id, {
-      realizedCost,
+      realizedCost: realized,
       differenceAmount: diff,
       notes: lpjNotes || 'LPJ diajukan lengkap beserta bukti pembayaran digital.',
-      items: expenseItems,
+      items: expenseItems
+        .filter((i) => i.description.trim())
+        .map((i) => ({ ...i, amount: Number(i.amount) || 0 })),
     });
 
     setSelectedForLpjModal(null);
@@ -326,8 +368,8 @@ export const PerjalananDinasView: React.FC = () => {
       {/* MODAL 1: Form Pengajuan Perjalanan Dinas */}
       {isNewModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 overflow-y-auto">
-          <div className="relative w-full max-w-2xl bg-white rounded-xl shadow-2xl border border-slate-200 overflow-hidden my-8">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-slate-50">
+          <div className="relative w-full max-w-2xl bg-white rounded-xl shadow-2xl border border-slate-200 overflow-hidden my-8 max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-slate-50 shrink-0">
               <div>
                 <h3 className="text-sm font-bold text-slate-900">Form Pengajuan Perjalanan Dinas</h3>
                 <p className="text-xs text-slate-500">Surat Tugas & SPD akan terbit otomatis tanpa input ganda</p>
@@ -337,7 +379,8 @@ export const PerjalananDinasView: React.FC = () => {
               </button>
             </div>
 
-            <form onSubmit={handleCreateSubmit} className="p-6 space-y-4">
+            <form onSubmit={handleCreateSubmit} className="flex flex-col min-h-0 flex-1">
+              <div className="p-6 space-y-4 overflow-y-auto flex-1 min-h-0">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">Kota / Tempat Tujuan</label>
@@ -401,6 +444,74 @@ export const PerjalananDinasView: React.FC = () => {
                 </div>
               </div>
 
+              {/* Rincian Komponen Biaya Estimasi */}
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-bold text-slate-900 block text-xs">
+                    Komponen Biaya Estimasi
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setEstimatedCost(costComponentTotal)}
+                    className="text-[11px] font-semibold text-blue-800 hover:text-blue-950 bg-blue-50 border border-blue-200 hover:border-blue-400 px-2 py-1 rounded transition-colors"
+                  >
+                    Samakan Total dengan Komponen (Rp{' '}
+                    <span className="font-mono">{costComponentTotal.toLocaleString('id-ID')}</span>)
+                  </button>
+                </div>
+
+                <div className="space-y-1.5">
+                  {costComponents.map((cc) => (
+                    <div key={cc.id} className="grid grid-cols-12 gap-2 items-center">
+                      <input
+                        type="text"
+                        value={cc.name}
+                        onChange={(e) => updateCostComponent(cc.id, { name: e.target.value })}
+                        placeholder="Nama komponen biaya"
+                        className="col-span-5 px-2.5 py-1.5 text-xs border border-slate-300 rounded bg-white focus:outline-none focus:ring-1 focus:ring-blue-900"
+                      />
+                      <div className="relative col-span-6">
+                        <span className="absolute left-2.5 top-1.5 text-[11px] text-slate-400 font-mono">
+                          Rp
+                        </span>
+                        <input
+                          type="number"
+                          min={0}
+                          value={cc.amount}
+                          onChange={(e) => updateCostComponent(cc.id, { amount: Number(e.target.value) })}
+                          placeholder="0"
+                          className="w-full pl-8 pr-2.5 py-1.5 text-xs border border-slate-300 rounded bg-white font-mono focus:outline-none focus:ring-1 focus:ring-blue-900"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeCostComponent(cc.id)}
+                        className="col-span-1 justify-self-end p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition-colors"
+                        title="Hapus komponen"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex items-center justify-between pt-1 border-t border-slate-200">
+                  <button
+                    type="button"
+                    onClick={addCostComponent}
+                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-800 hover:text-blue-950 bg-white border border-blue-200 hover:border-blue-400 px-2 py-1 rounded transition-colors"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> Tambah Komponen Manual
+                  </button>
+                  <span className="text-[11px] text-slate-500">
+                    Total komponen:{' '}
+                    <b className="font-mono text-slate-800">
+                      Rp {costComponentTotal.toLocaleString('id-ID')}
+                    </b>
+                  </span>
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">Estimasi Biaya Total (Rp)</label>
@@ -411,6 +522,9 @@ export const PerjalananDinasView: React.FC = () => {
                     onChange={(e) => setEstimatedCost(Number(e.target.value))}
                     className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg font-mono"
                   />
+                  <p className="text-[10px] text-slate-400 mt-0.5">
+                    Bisa diisi manual atau disamakan dengan total komponen di atas.
+                  </p>
                 </div>
 
                 <div>
@@ -435,8 +549,9 @@ export const PerjalananDinasView: React.FC = () => {
                   />
                 </div>
               </div>
+              </div>
 
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200">
+              <div className="flex items-center justify-end gap-2 px-6 py-3 border-t border-slate-200 bg-white shrink-0">
                 <button
                   type="button"
                   onClick={() => setIsNewModalOpen(false)}
@@ -573,8 +688,8 @@ export const PerjalananDinasView: React.FC = () => {
       {/* MODAL 3: Form Input LPJ Biaya Perjalanan Dinas */}
       {selectedForLpjModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 overflow-y-auto">
-          <div className="relative w-full max-w-xl bg-white rounded-xl shadow-2xl border border-slate-200 overflow-hidden my-8">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-slate-50">
+          <div className="relative w-full max-w-xl bg-white rounded-xl shadow-2xl border border-slate-200 overflow-hidden my-8 max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-slate-50 shrink-0">
               <div>
                 <h3 className="text-sm font-bold text-slate-900">Laporan Pertanggungjawaban (LPJ) Dinas</h3>
                 <p className="text-xs text-slate-500">SPD: {selectedForLpjModal.spdNumber}</p>
@@ -584,7 +699,8 @@ export const PerjalananDinasView: React.FC = () => {
               </button>
             </div>
 
-            <form onSubmit={handleLpjSubmit} className="p-6 space-y-4 text-xs">
+            <form onSubmit={handleLpjSubmit} className="flex flex-col min-h-0 flex-1 text-xs">
+              <div className="p-6 space-y-4 overflow-y-auto flex-1 min-h-0">
               <div className="p-3 bg-slate-50 rounded-lg space-y-1">
                 <div className="flex justify-between">
                   <span className="text-slate-500">Tujuan:</span>
@@ -631,19 +747,75 @@ export const PerjalananDinasView: React.FC = () => {
 
               {/* Expense Items Breakdown */}
               <div className="space-y-2">
-                <span className="font-bold text-slate-800 block">Rincian Komponen Biaya & Kuitansi:</span>
-                <div className="space-y-1.5 max-h-36 overflow-y-auto">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-slate-800 block">Rincian Komponen Biaya & Kuitansi:</span>
+                  <button
+                    type="button"
+                    onClick={() => setRealizedCost(expenseTotal)}
+                    className="text-[11px] font-semibold text-blue-800 hover:text-blue-950 bg-blue-50 border border-blue-200 hover:border-blue-400 px-2 py-1 rounded transition-colors"
+                  >
+                    Samakan Realisasi dengan Rincian (Rp{' '}
+                    <span className="font-mono">{expenseTotal.toLocaleString('id-ID')}</span>)
+                  </button>
+                </div>
+
+                <div className="space-y-1.5">
                   {expenseItems.map((item) => (
-                    <div key={item.id} className="flex justify-between items-center p-2 bg-slate-50 border border-slate-200 rounded">
-                      <div>
-                        <p className="font-medium text-slate-900">{item.description}</p>
-                        <span className="text-[10px] text-slate-500">{item.category} {item.receiptName ? `· ${item.receiptName}` : ''}</span>
+                    <div key={item.id} className="grid grid-cols-12 gap-2 items-center">
+                      <input
+                        type="text"
+                        value={item.description}
+                        onChange={(e) => updateExpenseItem(item.id, { description: e.target.value })}
+                        placeholder="Nama komponen biaya"
+                        className="col-span-5 px-2.5 py-1.5 text-xs border border-slate-300 rounded bg-white focus:outline-none focus:ring-1 focus:ring-blue-900"
+                      />
+                      <div className="relative col-span-6">
+                        <span className="absolute left-2.5 top-1.5 text-[11px] text-slate-400 font-mono">
+                          Rp
+                        </span>
+                        <input
+                          type="number"
+                          min={0}
+                          value={item.amount}
+                          onChange={(e) => updateExpenseItem(item.id, { amount: Number(e.target.value) })}
+                          placeholder="0"
+                          className="w-full pl-8 pr-2.5 py-1.5 text-xs border border-slate-300 rounded bg-white font-mono focus:outline-none focus:ring-1 focus:ring-blue-900"
+                        />
                       </div>
-                      <span className="font-mono font-semibold text-slate-800">
-                        Rp {item.amount.toLocaleString('id-ID')}
-                      </span>
+                      <div className="col-span-1 justify-self-end flex items-center gap-1">
+                        {item.receiptName && (
+                          <span
+                            className="text-emerald-600"
+                            title={`Kuitansi: ${item.receiptName}`}
+                          >
+                            <Receipt className="w-3.5 h-3.5" />
+                          </span>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => removeExpenseItem(item.id)}
+                          className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition-colors"
+                          title="Hapus komponen"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
                   ))}
+                </div>
+
+                <div className="flex items-center justify-between pt-1 border-t border-slate-200">
+                  <button
+                    type="button"
+                    onClick={addExpenseItem}
+                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-800 hover:text-blue-950 bg-white border border-blue-200 hover:border-blue-400 px-2 py-1 rounded transition-colors"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> Tambah Komponen Manual
+                  </button>
+                  <span className="text-[11px] text-slate-500">
+                    Total rincian:{' '}
+                    <b className="font-mono text-slate-800">Rp {expenseTotal.toLocaleString('id-ID')}</b>
+                  </span>
                 </div>
               </div>
 
@@ -657,8 +829,9 @@ export const PerjalananDinasView: React.FC = () => {
                   placeholder="Keterangan realisasi anggaran dan hasil kegiatan..."
                 />
               </div>
+              </div>
 
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200">
+              <div className="flex items-center justify-end gap-2 px-6 py-3 border-t border-slate-200 bg-white shrink-0">
                 <button
                   type="button"
                   onClick={() => setSelectedForLpjModal(null)}

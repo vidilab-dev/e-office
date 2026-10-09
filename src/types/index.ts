@@ -236,6 +236,8 @@ export interface TravelRequest {
   estimatedCost: number;
   costCenter: string;
   wbsProjectCode: string;
+  /** Rincian estimasi biaya per komponen (Transportasi Utama, Hotel, Makan, dll.) */
+  costComponents?: { name: string; amount: number }[];
   status: TravelStatus;
   suratTugasNumber?: string;
   spdNumber?: string;

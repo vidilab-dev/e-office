@@ -1295,6 +1295,7 @@ export const OfficeProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       estimatedCost: data.estimatedCost || 5000000,
       costCenter: data.costCenter || 'CC-DTI-104',
       wbsProjectCode: data.wbsProjectCode || 'WBS-OPR-2026',
+      costComponents: (data.costComponents || []).filter((c) => c.name.trim()),
       status: 'Diajukan',
     };
 
